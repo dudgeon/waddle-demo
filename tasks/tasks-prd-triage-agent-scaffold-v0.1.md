@@ -21,7 +21,7 @@
 
 ## Tasks
 
-- [ ] 1.0 Set up OpenAI Agents SDK Integration and Core Agent System
+- [x] 1.0 Set up OpenAI Agents SDK Integration and Core Agent System
   - [x] 1.1 Install @openai/agents TypeScript SDK and configure dependencies
   - [x] 1.2 Create src/lib/agent.ts with Agent instantiation using gpt-4o-mini model
   - [x] 1.3 Set up configurable persona instructions (environment variable or config)
