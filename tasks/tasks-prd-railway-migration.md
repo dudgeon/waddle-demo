@@ -50,7 +50,7 @@
   - [x] 1.6 Set up environment variable loading with dotenv configuration
   - [x] 1.7 Add static file serving middleware for built frontend assets
   - [x] 1.8 **DEV CHECKPOINT**: Test basic Express server runs locally on port 3001
-- [ ] 2.0 Port Agent Integration to Backend
+- [x] 2.0 Port Agent Integration to Backend
   - [x] 2.1 Create `server/src/lib/agent.ts` by porting existing `src/lib/agent.ts` functionality
   - [x] 2.2 Implement `server/src/lib/loadTools.ts` for tool discovery system (empty array initially)
   - [x] 2.3 Create `server/src/types/agent.ts` with TypeScript interfaces for agent configuration
@@ -64,13 +64,13 @@
     - Verify frontend only imports simple UI types from `src/types/index.ts`
   - [x] 2.5 Implement agent lifecycle management and error handling
 - [ ] 3.0 Implement Server-Sent Events Streaming
-  - [ ] 3.1 Create `server/src/routes/chat.ts` with POST endpoint for chat messages
-  - [ ] 3.2 Set up SSE headers (Content-Type, Cache-Control, Connection, CORS)
-  - [ ] 3.3 Implement OpenAI Agents SDK runner integration with streaming response handling
-  - [ ] 3.4 Add proper error handling and client disconnection management
-  - [ ] 3.5 Create heartbeat mechanism to maintain SSE connection stability
-  - [ ] 3.6 Test SSE streaming with various message sizes and connection scenarios
-  - [ ] 3.7 **DEV CHECKPOINT**: Test `/api/chat` endpoint locally with curl/Postman
+  - [x] 3.1 Create `server/src/routes/chat.ts` with POST endpoint for chat messages
+  - [x] 3.2 Set up SSE headers (Content-Type, Cache-Control, Connection, CORS)
+  - [x] 3.3 Implement OpenAI Agents SDK runner integration with streaming response handling
+  - [x] 3.4 Add proper error handling and client disconnection management
+  - [x] 3.5 Create heartbeat mechanism to maintain SSE connection stability
+  - [x] 3.6 Test SSE streaming with various message sizes and connection scenarios
+  - [x] 3.7 **DEV CHECKPOINT**: Test `/api/chat` endpoint locally with curl/Postman
 - [ ] 4.0 Update Frontend API Integration
   - [ ] 4.1 Create or update `src/utils/api.ts` with new Express backend API client
   - [ ] 4.2 Modify `src/utils/streamingService.ts` to handle SSE instead of fetch streaming

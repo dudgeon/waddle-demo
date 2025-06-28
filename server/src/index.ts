@@ -32,8 +32,9 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// API routes will be added here
-// app.use('/api', apiRoutes);
+// API routes
+import chatRoutes from './routes/chat';
+app.use('/api', chatRoutes);
 
 // Serve static files from built frontend (production only)
 if (process.env.NODE_ENV === 'production') {
