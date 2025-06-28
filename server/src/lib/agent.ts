@@ -1,9 +1,14 @@
 import { Agent } from '@openai/agents';
 import dotenv from 'dotenv';
 import path from 'path';
-import { getAgentConfig as getPersonaConfig } from '../config/persona';
-import { loadTools, convertToolsForAgent } from './loadTools';
-import type { AgentConfig } from '../types/agent';
+import { fileURLToPath } from 'url';
+import { getAgentConfig as getPersonaConfig } from '../config/persona.js';
+import { loadTools, convertToolsForAgent } from './loadTools.js';
+import type { AgentConfig } from '../types/agent.js';
+
+// ES modules compatibility
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables from project root
 dotenv.config({ path: path.join(__dirname, '../../../.env') });

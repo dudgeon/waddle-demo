@@ -1,7 +1,7 @@
 import express from 'express';
 import { run } from '@openai/agents';
-import { AgentManager, AgentRuntimeError } from '../lib/agent';
-import type { ChatMessage } from '../types/agent';
+import { AgentManager, AgentRuntimeError } from '../lib/agent.js';
+import type { ChatMessage } from '../types/agent.js';
 
 const router = express.Router();
 

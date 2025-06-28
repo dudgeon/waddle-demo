@@ -1,7 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+
+// ES modules compatibility
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables from project root
 dotenv.config({ path: path.join(__dirname, '../../.env') });
@@ -33,7 +38,7 @@ app.get('/health', (_req, res) => {
 });
 
 // API routes
-import chatRoutes from './routes/chat';
+import chatRoutes from './routes/chat.js';
 app.use('/api', chatRoutes);
 
 // Serve static files from built frontend (production only)

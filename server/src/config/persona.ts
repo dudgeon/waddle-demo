@@ -5,7 +5,7 @@
  * for the Waddle customer service agent.
  */
 
-import type { AgentConfig } from '../types/agent';
+import type { AgentConfig } from '../types/agent.js';
 
 export const AGENT_PERSONA = `You are a helpful customer service agent for Waddle, a company that provides various services to customers.
 
