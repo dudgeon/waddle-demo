@@ -1,151 +1,235 @@
 # Waddle Demo
 
-A demo for blended agentic tool calling and human in the loop interactions, now enhanced with the latest OpenAI Agents SDK (TypeScript).
+A full-stack demo for blended agentic tool calling and human in the loop interactions, featuring an Express.js backend with OpenAI Agents SDK and a React frontend with real-time streaming.
 
 ## Overview
 
-This project demonstrates advanced AI agent workflows using the OpenAI Agents SDK (TypeScript), featuring:
+This project demonstrates advanced AI agent workflows using a modern full-stack architecture:
 
-- **Multi-agent collaboration** with specialized agents
-- **Function tools** for custom capabilities
-- **Structured outputs** using Pydantic models
-- **Real-time streaming** responses
-- **Built-in tracing** for debugging and monitoring
-- **Handoffs** between agents for complex workflows
+**Backend (Express.js + OpenAI Agents SDK)**:
+- **Express.js API server** with TypeScript
+- **OpenAI Agents SDK integration** for AI agent management
+- **Server-Sent Events (SSE)** for real-time streaming
+- **Singleton agent management** with retry logic and graceful shutdown
+- **Health monitoring** and self-test endpoints
+
+**Frontend (React + TypeScript)**:
+- **Real-time chat interface** with EventSource streaming
+- **Environment-aware API client** with retry logic and health checks
+- **Modern UI** with responsive design and error handling
+- **Hot module replacement** for fast development
 
 ## Project Structure
 
 ```
 waddle-demo/
+├── server/                       # Express.js backend
+│   ├── src/
+│   │   ├── config/
+│   │   │   └── persona.ts       # Agent configuration and persona
+│   │   ├── lib/
+│   │   │   ├── agent.ts         # Agent manager with OpenAI SDK
+│   │   │   └── loadTools.ts     # Tool loading utilities
+│   │   ├── routes/
+│   │   │   └── chat.ts          # Chat API endpoints (GET/POST)
+│   │   ├── types/
+│   │   │   └── agent.ts         # TypeScript type definitions
+│   │   └── index.ts             # Express server entry point
+│   ├── package.json             # Backend dependencies
+│   └── tsconfig.json            # Backend TypeScript config
 ├── src/                          # React/TypeScript frontend
 │   ├── components/
 │   │   └── BlogPage.tsx         # Main blog page component
 │   ├── constants/
 │   │   └── flowSteps.ts         # Workflow step definitions
 │   ├── types/
-│   │   └── index.ts             # TypeScript type definitions
+│   │   └── index.ts             # Frontend type definitions
 │   └── utils/
+│       ├── api.ts               # API client with environment detection
+│       ├── streamingService.ts  # EventSource streaming service
 │       └── styleHelpers.ts      # Styling utilities
-├── chat-service-demo.tsx        # Main chat service demo component
-├── test-agents-sdk.ts           # TypeScript SDK installation test
-└── package.json                 # Node.js dependencies
+├── chat-service-demo.tsx        # Main chat interface component
+├── package.json                 # Frontend dependencies and scripts
+└── .env                         # Environment variables (project root)
 ```
 
 ## Quick Start
 
-### Frontend (React/TypeScript)
+### Full-Stack Development
 
 1. **Install dependencies**:
    ```bash
-   npm install
+   npm install          # Frontend dependencies
+   cd server && npm install && cd ..  # Backend dependencies
    ```
 
-2. **Start development server**:
+2. **Set up environment**:
    ```bash
-   npm run dev
+   # Create .env file in project root
+   echo "OPENAI_API_KEY=sk-your-api-key-here" > .env
    ```
 
-3. **View the demo**:
-   Open http://localhost:5174 in your browser
-
-### OpenAI Agents SDK (TypeScript)
-
-1. **Dependencies are already installed**:
+3. **Start both frontend and backend**:
    ```bash
-   npm install  # Includes @openai/agents
+   npm run dev          # Starts both servers concurrently
    ```
 
-2. **Set your API key**:
-   ```bash
-   export OPENAI_API_KEY=sk-your-api-key-here
-   ```
+4. **View the demo**:
+   - Frontend: http://localhost:5174
+   - Backend API: http://localhost:3001
+   - Health check: http://localhost:3001/health
 
-3. **Test the installation**:
-   ```bash
-   npx tsx test-agents-sdk.ts
-   ```
+### Individual Component Development
+
+#### Backend Only
+```bash
+cd server
+npm install
+npm run dev          # Starts Express server on port 3001
+```
+
+#### Frontend Only
+```bash
+npm install
+npm run dev:frontend # Starts Vite dev server on port 5174
+```
+
+## API Endpoints
+
+### Backend Server (port 3001)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Health check endpoint |
+| `GET` | `/api/chat/test` | Agent self-test endpoint |
+| `GET` | `/api/chat?message=...&stream=true` | EventSource streaming chat |
+| `POST` | `/api/chat` | JSON chat API (streaming and non-streaming) |
+
+### Example API Usage
+
+```bash
+# Health check
+curl http://localhost:3001/health
+
+# Agent self-test
+curl http://localhost:3001/api/chat/test
+
+# Non-streaming chat
+curl -X POST http://localhost:3001/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello", "sessionId": "test", "stream": false}'
+
+# Streaming chat
+curl -X POST http://localhost:3001/api/chat \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"message": "Hello", "sessionId": "test", "stream": true}' \
+  --no-buffer
+```
 
 ## Features
 
-### Frontend Demo
+### Backend Features
+- **Express.js API server** with TypeScript and comprehensive error handling
+- **OpenAI Agents SDK integration** with singleton pattern and retry logic
+- **Dual streaming support**: Server-Sent Events (GET) and JSON streaming (POST)
+- **Environment variable management** with dotenv configuration
+- **Graceful shutdown** with proper cleanup and signal handling
+- **Health monitoring** with self-test capabilities
+- **Process management** with cleanup scripts for development
+
+### Frontend Features
+- **Real-time streaming chat** with EventSource and automatic reconnection
+- **Environment-aware API client** with base URL detection and health checks
+- **Comprehensive error handling** with retry logic and exponential backoff
 - **Responsive design** with mobile warning overlay
-- **Interactive chat interface** with agent workflow visualization
-- **Real-time updates** with Vite hot module replacement
-- **Modern UI** with Tailwind CSS styling
+- **Modern UI** with Tailwind CSS styling and loading states
+- **Hot module replacement** with Vite for fast development
 
-### OpenAI Agents SDK Integration
-- **Multi-agent workflows** with specialized agents
-- **Function tools** for custom capabilities
-- **Structured outputs** using Zod schemas
-- **Async operations** for concurrent processing
+### Agent Capabilities
+- **Customer service persona** with specialized knowledge
 - **Streaming responses** for real-time interaction
-- **Built-in tracing** for debugging and monitoring
-
-## Documentation
-
-### OpenAI Agents SDK (TypeScript)
-- [**Official Documentation**](https://openai.github.io/openai-agents-js/) - Complete TypeScript SDK guide
-- [**GitHub Repository**](https://github.com/openai/openai-agents-js) - Source code and examples
-- [**Examples Directory**](https://github.com/openai/openai-agents-js/tree/main/examples) - Practical usage examples
-
-### External Resources
-- [OpenAI Agents JS Documentation](https://openai.github.io/openai-agents-js/)
-- [Multi-Agent Workflows Guide](https://github.com/openai/openai-agents-js/blob/main/AGENTS.md)
-
-## Development
-
-### Frontend Development
-```bash
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-```
-
-### TypeScript Development
-```bash
-# Install dependencies
-npm install
-
-# Run tests
-npx tsx test-agents-sdk.ts
-
-# Check examples online
-open https://github.com/openai/openai-agents-js/tree/main/examples
-```
+- **Session management** with conversation context
+- **Error recovery** with automatic retry and fallback handling
+- **Configurable models** via environment variables
 
 ## Environment Variables
 
-Create a `.env` file in the project root:
+Create a `.env` file in the **project root** (not in server/):
 
 ```bash
-# OpenAI API key (required for agents)
+# Required: OpenAI API key
 OPENAI_API_KEY=sk-your-api-key-here
 
-# Optional tracing configuration
-OPENAI_TRACE_ENABLED=true
+# Optional: Custom model (defaults to gpt-4o-mini)
+AGENT_MODEL=gpt-4o
+
+# Optional: Frontend API URL override (auto-detected in development)
+VITE_API_URL=http://localhost:3001
 ```
+
+## Development
+
+### Development Scripts
+
+```bash
+# Full-stack development (recommended)
+npm run dev              # Starts both frontend and backend
+
+# Individual components
+npm run dev:frontend     # Frontend only (port 5174)
+npm run dev:backend      # Backend only (port 3001)
+
+# Backend utilities
+cd server
+npm run dev-clean        # Kill orphaned processes
+npm run build            # Build backend for production
+npm run start            # Start production backend
+
+# Frontend utilities
+npm run build            # Build frontend for production
+npm run preview          # Preview production build
+```
+
+### Development Workflow
+
+1. **Start development**: `npm run dev` (runs both servers)
+2. **Make changes**: Edit files with hot reload
+3. **Test streaming**: Use the chat interface at http://localhost:5174
+4. **Debug backend**: Check logs in terminal or visit health endpoints
+5. **Clean restart**: Use `npm run dev-clean` in server/ if needed
 
 ## Key Technologies
 
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS
-- **AI/ML**: OpenAI Agents SDK (TypeScript), GPT-4, Function Calling
-- **TypeScript**: Zod, AsyncIO, Node.js 22+
-- **Development**: Hot Module Replacement, ESLint, TypeScript
+### Backend Stack
+- **Runtime**: Node.js 22+ with TypeScript
+- **Framework**: Express.js with async/await patterns
+- **AI/ML**: OpenAI Agents SDK (TypeScript), GPT-4o-mini
+- **Streaming**: Server-Sent Events (SSE) and JSON streaming
+- **Configuration**: dotenv, path resolution, graceful shutdown
+
+### Frontend Stack
+- **Framework**: React 18 with TypeScript and hooks
+- **Build Tool**: Vite with hot module replacement
+- **Styling**: Tailwind CSS with responsive design
+- **HTTP Client**: Custom API client with EventSource streaming
+- **State Management**: React hooks with error boundaries
+
+### Development Tools
+- **TypeScript**: Strict mode with comprehensive type checking
+- **Process Management**: tsx for TypeScript execution, concurrently for multi-server dev
+- **Hot Reload**: Vite frontend HMR, tsx watch for backend
+- **Process Cleanup**: Custom dev-clean scripts for port conflict resolution
 
 ## Use Cases
 
 This demo showcases patterns for:
 
-1. **Customer Support**: Multi-agent triage and specialized responses
-2. **Content Creation**: Collaborative writing and editing workflows
-3. **Data Analysis**: Structured data extraction and processing
-4. **Research**: Multi-step research and analysis workflows
-5. **Decision Support**: Expert agent consultation and recommendations
+1. **Real-time Customer Support**: Streaming agent responses with conversation context
+2. **Full-stack AI Applications**: Express backend with React frontend integration
+3. **Production-ready Architecture**: Health monitoring, graceful shutdown, error recovery
+4. **Development Workflow**: Hot reload, process management, environment configuration
+5. **API Design**: RESTful endpoints with streaming and non-streaming variants
 
 ## Contributing
 
