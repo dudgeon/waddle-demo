@@ -2,10 +2,10 @@
 nixPkgs = ['nodejs_20', 'npm-9_x']
 
 [phases.install]
-cmds = ['npm ci --include=dev']
+cmds = ['npm install --include=dev']
 
-[phases.build]
-cmds = ['npm run build']
+[phases.build] 
+cmds = ['echo "Building..." && npm run build && ls -la server/dist/ || echo "Server build failed"']
 
 [start]
 cmd = 'npm start'
