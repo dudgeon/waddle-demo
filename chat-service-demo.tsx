@@ -15,6 +15,13 @@ export default function ChatServiceDemo() {
   const [awaitingApproval, setAwaitingApproval] = useState<boolean>(false);
   const [pendingResponse, setPendingResponse] = useState<string>('');
 
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   const simulateProcessing = async () => {
     setActiveStep('receive');
     await new Promise(resolve => setTimeout(resolve, TIMING_CONFIG.RECEIVE_DELAY));
@@ -99,14 +106,35 @@ export default function ChatServiceDemo() {
   const FlowNode = ({ step, isActive }: { step: FlowStep; isActive: boolean }) => {
     const Icon = step.icon;
 
+    const getAnchorId = (stepId: string) => {
+      const anchorMap: { [key: string]: string } = {
+        'receive': 'message-ingestion',
+        'planning': 'planning-agent',
+        'orderdb': 'internally-defined-tools',
+        'crm': 'internally-defined-tools',
+        'mcp': 'externally-accessed-tools-mcp-servers',
+        'approval': 'agent-chat-ui-for-hitl',
+        'respond': 'agent-chat-ui-for-hitl'
+      };
+      return anchorMap[stepId];
+    };
+
+    const anchorId = getAnchorId(step.id);
+    const isClickable = !!anchorId;
+
     return (
-      <div className={getNodeClasses(step, isActive)}>
+      <div 
+        className={`${getNodeClasses(step, isActive)} ${isClickable ? 'cursor-pointer hover:shadow-lg transition-shadow' : ''}`}
+        onClick={isClickable ? () => scrollToSection(anchorId) : undefined}
+      >
         <div className="flex items-start space-x-3">
           <div className={getIconBgClasses(step, isActive)}>
             <Icon className={getIconClasses(step, isActive)} />
           </div>
           <div className="flex-1">
-            <div className="font-medium text-sm">{step.label}</div>
+            <div className={`font-medium text-sm ${isClickable ? 'text-blue-600 hover:text-blue-800 hover:underline' : ''}`}>
+              {step.label}
+            </div>
             {step.description && (
               <div className="text-xs text-gray-600 mt-1 leading-relaxed">
                 {step.description}
@@ -130,14 +158,14 @@ export default function ChatServiceDemo() {
     <div className="w-full min-h-[600px] flex bg-gray-50">
       {/* Customer Chat UI */}
       <div className="w-[30%] bg-white shadow-xl shadow-purple-100/50 flex flex-col">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 shadow-lg">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 shadow-lg cursor-pointer hover:from-blue-700 hover:to-blue-800 transition-colors" onClick={() => scrollToSection('customer-chat-ui')}>
           <h2 className="text-xl font-bold flex items-center">
             <div className="p-2 bg-white/20 rounded-lg mr-3 backdrop-blur-sm">
               <User className="w-5 h-5" />
             </div>
             Customer Support
           </h2>
-          <p className="text-xs text-blue-100 mt-1 ml-12">Chat Session #1234</p>
+          <p className="text-xs text-blue-100 mt-1 ml-12">Chat Session #1234 • Click to learn more</p>
         </div>
         
         <div className="flex-1 overflow-y-auto p-2 bg-gradient-to-b from-gray-50 to-white">
@@ -193,14 +221,14 @@ export default function ChatServiceDemo() {
 
       {/* Agent Runtime Visualization */}
       <div className="w-[40%] bg-gradient-to-br from-purple-50 via-white to-blue-50 shadow-inner flex flex-col">
-        <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-3 shadow-lg">
+        <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-3 shadow-lg cursor-pointer hover:from-purple-700 hover:to-purple-800 transition-colors" onClick={() => scrollToSection('agentic-runtime-processing')}>
           <h2 className="text-xl font-bold flex items-center">
             <div className="p-2 bg-white/20 rounded-lg mr-3 backdrop-blur-sm">
               <Zap className="w-5 h-5" />
             </div>
             Agent Runtime Flow
           </h2>
-          <p className="text-xs text-purple-100 mt-1 ml-12">Real-time Processing Pipeline</p>
+          <p className="text-xs text-purple-100 mt-1 ml-12">Real-time Processing Pipeline • Click to learn more</p>
         </div>
         
         <div className="flex-1 overflow-y-auto p-2">
@@ -312,30 +340,19 @@ export default function ChatServiceDemo() {
           </div>
         </div>
         
-        <div className="p-2 bg-white/80 backdrop-blur-sm border-t border-purple-100">
-          <div className="flex justify-center space-x-6 text-xs">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-gradient-to-br from-green-400 to-green-500 rounded-full shadow-sm"></div>
-              <span className="text-gray-600">Internal Tools</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-gradient-to-br from-orange-400 to-orange-500 rounded-full shadow-sm"></div>
-              <span className="text-gray-600">External MCP</span>
-            </div>
-          </div>
-        </div>
+
       </div>
 
       {/* Agent UI */}
       <div className="w-[30%] bg-white shadow-xl shadow-purple-100/50 flex flex-col">
-        <div className="bg-gradient-to-r from-emerald-600 to-green-600 text-white p-3 shadow-lg">
+        <div className="bg-gradient-to-r from-emerald-600 to-green-600 text-white p-3 shadow-lg cursor-pointer hover:from-emerald-700 hover:to-green-700 transition-colors" onClick={() => scrollToSection('agent-chat-ui-for-hitl')}>
           <h2 className="text-xl font-bold flex items-center">
             <div className="p-2 bg-white/20 rounded-lg mr-3 backdrop-blur-sm">
               <Bot className="w-5 h-5" />
             </div>
             Agent Dashboard
           </h2>
-          <p className="text-xs text-emerald-100 mt-1 ml-12">Agent ID: AGT-001</p>
+          <p className="text-xs text-emerald-100 mt-1 ml-12">Agent ID: AGT-001 • Click to learn more</p>
         </div>
         
         <div className="flex-1 overflow-y-auto p-2 bg-gradient-to-b from-gray-50 to-white">
