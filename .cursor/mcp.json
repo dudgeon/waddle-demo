@@ -1,0 +1,41 @@
+{
+  "mcpServers": {
+    "Vercel": {
+      "command": "npx",
+      "args": [
+        "-y", "--package", "@vercel/sdk",
+        "--",
+        "mcp", "start",
+        "--bearer-token", "${VERCEL_TOKEN}"
+      ],
+      "env": {
+        "VERCEL_TOKEN": "${VERCEL_TOKEN}",
+        "VERCEL_TEAM_ID": "${VERCEL_TEAM_ID}"
+      }
+    },
+    "Railway": {
+      "command": "npx",
+      "args": [
+        "-y", "--package", "@mcp-server/railway",
+        "--",
+        "mcp-server-railway"
+      ],
+      "env": {
+        "RAILWAY_API_KEY": "cafc9c46-e347-4298-814e-1bd964df3987"
+      }
+    },
+    "Stagehand": {
+      "command": "npx",
+      "args": [
+        "-y", "--package", "@browserbase/mcp-server-browserbase",
+        "--",
+        "node", "stagehand/dist/index.js"
+      ],
+      "env": {
+        "BROWSERBASE_API_KEY": "${BROWSERBASE_API_KEY}",
+        "BROWSERBASE_PROJECT_ID": "${BROWSERBASE_PROJECT_ID}",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}"
+      }
+    }
+  }
+} 

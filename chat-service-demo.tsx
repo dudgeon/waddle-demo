@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, CheckCircle, ArrowDown, Zap, AlertCircle } from 'lucide-react';
 import { FLOW_STEPS, TIMING_CONFIG, FlowStep } from './src/constants/flowSteps';
 import { getNodeClasses, getIconClasses, getIconBgClasses } from './src/utils/styleHelpers';
 import { Message, ActiveStep } from './src/types';
+import { startChatStream, closeChatStream } from './src/utils/streamingService';
 
 export default function ChatServiceDemo() {
   const [customerMessages, setCustomerMessages] = useState<Message[]>([
@@ -14,6 +15,20 @@ export default function ChatServiceDemo() {
   const [activeStep, setActiveStep] = useState<ActiveStep>(null);
   const [awaitingApproval, setAwaitingApproval] = useState<boolean>(false);
   const [pendingResponse, setPendingResponse] = useState<string>('');
+  
+  // New state for real streaming integration
+  const [isStreaming, setIsStreaming] = useState<boolean>(false);
+  const [streamingText, setStreamingText] = useState<string>('');
+  const [currentSessionId] = useState<string>(`session-${Date.now()}`);
+  const [agentInfo, setAgentInfo] = useState<{ name: string; usage?: any }>({ name: 'waddle-agent' });
+  const messageIdCounter = useRef<number>(2);
+
+  // Cleanup streaming connection on unmount
+  useEffect(() => {
+    return () => {
+      closeChatStream();
+    };
+  }, []);
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -22,33 +37,105 @@ export default function ChatServiceDemo() {
     }
   };
 
-  const simulateProcessing = async () => {
+  const processWithRealAgent = async (message: string) => {
+    setIsStreaming(true);
+    setStreamingText('');
     setActiveStep('receive');
-    await new Promise(resolve => setTimeout(resolve, TIMING_CONFIG.RECEIVE_DELAY));
     
-    setActiveStep('planning');
-    await new Promise(resolve => setTimeout(resolve, TIMING_CONFIG.PLANNING_DELAY));
-    
-    for (const toolId of ['orderdb', 'crm', 'mcp']) {
-      setActiveStep(toolId);
-      await new Promise(resolve => setTimeout(resolve, TIMING_CONFIG.TOOL_DELAY));
+    try {
+      // Start the streaming connection
+      await startChatStream(message, currentSessionId, {
+        onConnected: (data) => {
+          console.log('Connected to agent:', data);
+          setActiveStep('planning');
+        },
+        
+        onTextDelta: (data) => {
+          setStreamingText(prev => prev + data.delta);
+          setActiveStep('respond');
+        },
+        
+        onToolCall: (data) => {
+          console.log('Tool called:', data);
+          // Map tool names to our visual flow
+          if (data.name.includes('order') || data.name.includes('db')) {
+            setActiveStep('orderdb');
+          } else if (data.name.includes('crm') || data.name.includes('customer')) {
+            setActiveStep('crm');
+          } else {
+            setActiveStep('mcp');
+          }
+        },
+        
+        onMessageCreated: (data) => {
+          console.log('Message created:', data);
+        },
+        
+        onAgentUpdated: (data) => {
+          setAgentInfo(prev => ({ ...prev, name: data.agent_name }));
+        },
+        
+        onFinalResult: (data) => {
+          console.log('Final result:', data);
+          
+          // Add the complete response to both message lists
+          const finalText = data.final_output || streamingText;
+          const newMessage: Message = {
+            id: messageIdCounter.current++,
+            text: finalText,
+            sender: 'agent'
+          };
+          
+          setAgentMessages(prev => [...prev, newMessage]);
+          setCustomerMessages(prev => [...prev, newMessage]);
+          setAgentInfo(prev => ({ ...prev, usage: data.usage }));
+          
+          // Show approval workflow for demonstration
+          setAwaitingApproval(true);
+          setPendingResponse(finalText);
+          setActiveStep('approval');
+        },
+        
+        onStreamComplete: (data) => {
+          console.log('Stream completed:', data);
+          setIsStreaming(false);
+          setStreamingText('');
+        },
+        
+        onError: (data) => {
+          console.error('Streaming error:', data);
+          setIsStreaming(false);
+          setActiveStep(null);
+          
+          // Show error message
+          const errorMessage: Message = {
+            id: messageIdCounter.current++,
+            text: `Error: ${data.error}`,
+            sender: 'agent'
+          };
+          setAgentMessages(prev => [...prev, errorMessage]);
+          setCustomerMessages(prev => [...prev, errorMessage]);
+        }
+      });
+      
+    } catch (error) {
+      console.error('Failed to start streaming:', error);
+      setIsStreaming(false);
+      setActiveStep(null);
     }
-    
-    setActiveStep('approval');
-    setAwaitingApproval(true);
-    setPendingResponse("I found the customer's order #12345. It shows as delivered yesterday. Should I provide tracking details and offer to investigate further?");
   };
 
   const handleCustomerSend = () => {
-    if (customerInput.trim()) {
+    if (customerInput.trim() && !isStreaming) {
       const newMessage: Message = { 
-        id: customerMessages.length + 1, 
+        id: messageIdCounter.current++, 
         text: customerInput, 
         sender: 'customer' 
       };
       setCustomerMessages([...customerMessages, newMessage]);
+      const messageText = customerInput;
       setCustomerInput('');
-      simulateProcessing();
+      processWithRealAgent(messageText);
     }
   };
 
@@ -184,7 +271,22 @@ export default function ChatServiceDemo() {
                 </div>
               </div>
             ))}
-            {activeStep && (
+            {isStreaming && streamingText && (
+              <div className="flex justify-start">
+                <div className="max-w-[80%] bg-white border border-gray-200 text-gray-800 shadow-md p-2 rounded-2xl">
+                  <p className="text-sm">{streamingText}</p>
+                  <div className="flex items-center mt-1">
+                    <div className="flex space-x-1 mr-2">
+                      <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                    <span className="text-xs text-blue-600">streaming...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {activeStep && !streamingText && (
               <div className="flex justify-start">
                 <div className="bg-gray-100 text-gray-600 p-2 rounded-2xl flex items-center shadow-sm">
                   <div className="flex space-x-1 mr-3">
@@ -206,12 +308,22 @@ export default function ChatServiceDemo() {
               value={customerInput}
               onChange={(e) => setCustomerInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleCustomerSend()}
-              placeholder="Type your message..."
-              className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+              placeholder={isStreaming ? "Agent is responding..." : "Type your message..."}
+              disabled={isStreaming}
+              className={`flex-1 px-3 py-2 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                isStreaming 
+                  ? 'bg-gray-100 text-gray-500 cursor-not-allowed' 
+                  : 'bg-gray-50 focus:bg-white'
+              }`}
             />
             <button
               onClick={handleCustomerSend}
-              className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-2 rounded-full hover:shadow-lg transform hover:scale-105 transition-all"
+              disabled={isStreaming || !customerInput.trim()}
+              className={`p-2 rounded-full transition-all ${
+                isStreaming || !customerInput.trim()
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-lg transform hover:scale-105'
+              }`}
             >
               <Send className="w-5 h-5" />
             </button>
@@ -352,7 +464,7 @@ export default function ChatServiceDemo() {
             </div>
             Agent Dashboard
           </h2>
-          <p className="text-xs text-emerald-100 mt-1 ml-12">Agent ID: AGT-001 • Click to learn more</p>
+          <p className="text-xs text-emerald-100 mt-1 ml-12">Agent: {agentInfo.name} • {isStreaming ? 'Processing...' : 'Ready'} • Click to learn more</p>
         </div>
         
         <div className="flex-1 overflow-y-auto p-2 bg-gradient-to-b from-gray-50 to-white">

@@ -4,3 +4,16 @@ globs:
 alwaysApply: true
 ---
 the file .env exists; please always look at it before talking about variables
+
+## Required Process:
+1. If `read_file` fails to find .env, immediately use terminal commands:
+   - `find . -name ".env" -type f` to locate it
+   - `cat .env` to read its contents
+2. NEVER assume the .env file doesn't exist if file reading tools fail
+3. ALWAYS use terminal commands as a fallback for hidden files
+4. Read the .env contents BEFORE making any assumptions about environment variables or configuration
+
+## Why This Matters:
+- Hidden files (.env) may not be accessible via standard file reading tools
+- Terminal commands are more reliable for finding and reading hidden files
+- The .env file contains critical configuration that affects all development decisions

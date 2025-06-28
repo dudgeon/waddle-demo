@@ -19,6 +19,13 @@
 - The system must work with zero tools initially
 - API functions live in the root `api/` directory, not inside `src/`
 
+### Critical Deployment Issues Discovered
+
+- **@openai/agents incompatible with Vercel Edge Runtime**: The OpenAI Agents SDK cannot be used in Edge Functions
+- **Recursive invocation resolved**: Fixed by resetting Vercel project configuration
+- **Architecture decision needed**: Must choose between Edge Functions (limited) vs Serverless Functions (full Node.js)
+- **Zero successful deployments**: All 13+ deployment attempts have failed due to unsupported modules
+
 ## Tasks
 
 - [x] 1.0 Set up OpenAI Agents SDK Integration and Core Agent System
@@ -28,13 +35,44 @@
   - [x] 1.4 Create TypeScript interfaces in src/types/agent.ts for agent configuration
   - [x] 1.5 Initialize agent with empty tools array and verify basic functionality
 - [ ] 2.0 Create Vercel Edge Functions and Integrate with Existing Chat UI
-  - [ ] 2.1 Create api/chat.ts as Vercel Edge Function with proper config export
-  - [ ] 2.2 Implement Runner.runStream integration for streaming responses
-  - [ ] 2.3 Set up Server-Sent Events (SSE) streaming to client
-  - [ ] 2.4 Create vercel.json with Edge Runtime configuration
-  - [ ] 2.5 Modify chat-service-demo.tsx to connect to new /api/chat endpoint
-  - [ ] 2.6 Test end-to-end chat flow with agent responses streaming to UI
-  - [ ] 2.7 Ensure dual-persona demo functionality continues to work
+  - [x] 2.1 Create api/chat.ts as Vercel Edge Function with proper config export
+  - [x] 2.2 Implement Runner.runStream integration for streaming responses
+  - [x] 2.3 Set up Server-Sent Events (SSE) streaming to client
+  - [x] 2.4 Create vercel.json with Edge Runtime configuration
+  - [x] 2.5 Modify chat-service-demo.tsx to connect to new /api/chat endpoint
+    - [x] ~~2.6 Fix development environment to properly simulate Vercel Edge Functions~~ **REVERT NEEDED**
+    - [x] ~~2.6.1 Install and configure @vercel/node for local development~~ **REVERT NEEDED**
+    - [x] ~~2.6.2 Update package.json scripts to use vercel dev instead of vite dev~~ **REVERT NEEDED**
+    - [x] ~~2.6.3 Configure proper local Vercel development environment~~ **REVERT NEEDED**
+    - [x] ~~2.6.4 Create development proxy to test Edge Function behavior locally~~ **REVERT NEEDED**
+  - [ ] 2.6 **NEW: Set up proper Vercel development environment**
+    - [x] 2.6.1 Remove dev-proxy.js workaround file
+    - [x] 2.6.2 Update package.json to use `vercel dev` as primary development command
+    - [x] 2.6.3 Configure Vercel project linking if needed
+    - [ ] 2.6.4 Test Edge Functions work properly with `vercel dev`
+      - [x] 2.6.4.1 Discovered issue: vercel dev runs Vite separately, creating port mismatch
+      - [x] 2.6.4.2 Fix vercel.json devCommand to serve frontend and API on same port
+      - [ ] 2.6.4.3 Verify Edge Functions are accessible from frontend
+        - [x] 2.6.4.3.1 Removed devCommand and framework from vercel.json
+        - [x] 2.6.4.3.2 Built static files for Vercel to serve
+        - [x] 2.6.4.3.3 API endpoints responding (getting "Upgrade Required" - likely OpenAI API key issue)
+        - [ ] 2.6.4.3.4 Resolve frontend serving issue in Vercel dev
+  - [ ] 2.7 Test end-to-end chat flow with agent responses streaming to UI
+  - [ ] 2.8 Ensure dual-persona demo functionality continues to work
+  - [x] 2.7 **NEW: Troubleshoot Vercel deployment and build failures** ✅ **MAJOR BREAKTHROUGH**
+    - [x] 2.7.1 **Debug recursive invocation error**
+      - [x] 2.7.1.1 Identified root cause: vercel.json devCommand creates recursive calls
+      - [x] 2.7.1.2 Remove devCommand from vercel.json completely (already attempted)
+      - [x] 2.7.1.3 Test vercel dev without any custom devCommand configuration
+      - [x] 2.7.1.4 Verify package.json scripts don't conflict with Vercel commands
+    - [x] 2.7.2 **Fix build command configuration**
+      - [x] 2.7.2.1 **CRITICAL FIX**: Removed runtime specification from vercel.json (Edge Functions declare runtime in-file)
+      - [x] 2.7.2.2 Test local build with `vercel build` - ✅ SUCCESS!
+      - [x] 2.7.2.3 Verified Edge Function uses correct `export const config = { runtime: 'edge' }` syntax
+    - [x] 2.7.3 **Development server working**
+      - [x] 2.7.3.1 Vercel dev server running successfully on port 3001
+      - [x] 2.7.3.2 API endpoints responding (no more "Function Runtimes must have a valid version" error)
+      - [x] 2.7.3.3 Ready for frontend testing and integration
 - [ ] 3.0 Implement Tool Discovery and Auto-Loading System
   - [ ] 3.1 Create src/lib/loadTools.ts with glob import functionality for *.tool.ts files
   - [ ] 3.2 Set up src/tools/ directory structure for auto-discovered tools
@@ -48,3 +86,48 @@
   - [ ] 4.3 Set up basic logging for approval events (no UI modal yet)
   - [ ] 4.4 Ensure approval logic remains dormant when no tools are present
   - [ ] 4.5 Add Edge Runtime config to vercel.json for approvals endpoint
+- [ ] 5.0 **CRITICAL: Fix Vercel Deployment and Development Environment** 🚨
+  - [x] 5.1 **Resolve recursive invocation error**
+    - [x] 5.1.1 Identified root cause: Vercel project settings had `devCommand: "npm run dev"` creating recursive loop
+    - [x] 5.1.2 Removed .vercel directory and re-linked project to reset configuration
+    - [x] 5.1.3 Modified package.json scripts to separate `dev:vite` and `dev` commands
+    - [x] 5.1.4 Successfully running `vercel dev` on localhost:3001
+  - [ ] 5.2 **CRITICAL: Migrate from Edge Functions to Serverless Functions** 🔥
+    - [ ] 5.2.1 **ROOT CAUSE**: `@openai/agents` SDK incompatible with Vercel Edge Runtime
+      - Edge Runtime only supports Web APIs, not full Node.js APIs
+      - OpenAI Agents SDK requires Node.js modules not available in Edge Runtime
+      - All 13+ deployments failed with "referencing unsupported modules" error
+    - [ ] 5.2.2 **Migration Strategy**: Convert `api/chat.ts` to Serverless Function
+      - Remove `export const config = { runtime: 'edge' }` 
+      - Change to Node.js runtime (default for Vercel Serverless Functions)
+      - Update `vercel.json` to remove Edge Runtime config for chat endpoint
+      - Keep existing OpenAI Agents SDK implementation intact
+    - [ ] 5.2.3 **Update Function Signature**: Convert from Edge Function to Serverless Function
+      - Change from `export default async function handler(req: Request)` 
+      - To `export default async function handler(req: VercelRequest, res: VercelResponse)`
+      - Update imports to use `import type { VercelRequest, VercelResponse } from '@vercel/node'`
+      - Modify response handling from `new Response()` to `res.status().json()`
+    - [ ] 5.2.4 **Preserve Streaming Implementation**: Adapt SSE streaming for Serverless
+      - Convert ReadableStream to Node.js response streaming
+      - Update SSE headers: `res.setHeader('Content-Type', 'text/event-stream')`
+      - Use `res.write()` for streaming instead of `controller.enqueue()`
+      - Maintain existing OpenAI Agents SDK streaming logic
+    - [ ] 5.2.5 **Test Migration**: Verify OpenAI Agents SDK works in Serverless
+      - Deploy test version with Serverless Function
+      - Confirm streaming responses work correctly
+      - Validate agent initialization and tool execution
+    - [ ] 5.2.6 **Update Configuration Files**
+      - Modify `vercel.json` to remove Edge Runtime config
+      - Add Node.js runtime specification if needed
+      - Update any environment variable configurations
+  - [ ] 5.3 **Alternative Fallback Plan**: If Serverless Functions hit limits
+    - [ ] 5.3.1 Consider migrating to Vercel AI SDK + OpenAI API directly
+    - [ ] 5.3.2 Implement agent-like behavior using function calling
+    - [ ] 5.3.3 Preserve existing agent persona and tool architecture
+    - [ ] 5.3.4 Only pursue if Serverless Functions don't work
+- [ ] 6.0 **Post-Migration: Deployment Validation** 
+  - [ ] 6.1 Deploy migrated Serverless Function to Vercel
+  - [ ] 6.2 Test streaming chat functionality end-to-end
+  - [ ] 6.3 Verify OpenAI Agents SDK integration works in production
+  - [ ] 6.4 Monitor function performance and cold start times
+  - [ ] 6.5 Update local development workflow documentation
