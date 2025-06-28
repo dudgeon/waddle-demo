@@ -11,8 +11,8 @@ The **Triage-Agent Scaffold v0.1** is a chat-first triage layer that plugs into 
 
 ## User Stories
 *As a customer* I send a chat message and get a fast, useful answer.
-*As a demo “customer”* I can showcase the experience.
-*As a demo “agent”* I can approve or reject tool calls (once tools exist).
+*As a demo "customer"* I can showcase the experience.
+*As a demo "agent"* I can approve or reject tool calls (once tools exist).
 *As a developer* I extend capability by adding a file under `src/tools/`.
 
 ## Functional Requirements
@@ -22,7 +22,7 @@ The **Triage-Agent Scaffold v0.1** is a chat-first triage layer that plugs into 
 
    ```ts
    const agent = new Agent({
-     model: "gpt-4.1-nano",           // fastest, cheapest GPT-4.1 tier [oai_citation:0‡openai.com](https://openai.com/index/gpt-4-1/?utm_source=chatgpt.com)
+     model: "gpt-4o-mini",            // fastest, most cost-effective model
      tools: loadTools(),              // auto-discovery, may be []
      instructions: bankPersona        // configurable persona
    });
@@ -48,7 +48,7 @@ The **Triage-Agent Scaffold v0.1** is a chat-first triage layer that plugs into 
 
 ### **API & Runtime**
 
-13.  **Next.js (App Router) / Vercel edge** handler at src/app/api/chat/route.ts.
+13.  **Vercel Edge Functions** at api/chat.ts and api/approvals.ts (outside src/).
 14.  Handler calls Runner.runStream and pipes Server-Sent Events to the React chat UI.
 15.  Must stream partial and final messages in real time.
 16.  All routes are unauthenticated for this demo release.
@@ -82,7 +82,7 @@ The **Triage-Agent Scaffold v0.1** is a chat-first triage layer that plugs into 
 
 -   **@openai/agents (TS SDK)**
 -   **Vercel Edge Runtime**
--   **React / Next.js App Router**
+-   **React / Vite**
 -   **SSE** for chat streaming
 
 ### **Integration Points**
@@ -94,15 +94,18 @@ The **Triage-Agent Scaffold v0.1** is a chat-first triage layer that plugs into 
 ### **File Structure**
 
 ```
+api/                    # Vercel Functions (outside src/)
+  chat.ts              # Edge handler -> Runner.runStream
+  approvals.ts         # Approval endpoint
 src/
-  tools/                # Auto-discovered tool defs (empty for v0.1)
+  tools/               # Auto-discovered tool defs (empty for v0.1)
     *.tool.ts
-  app/
-    api/
-      chat/route.ts     # Edge handler -> Runner.runStream
-      approvals/route.ts# Approval endpoint
   lib/
-    loadTools.ts        # Tool discovery helper
+    loadTools.ts       # Tool discovery helper
+    agent.ts           # Agent configuration
+  types/
+    agent.ts           # TypeScript interfaces
+vercel.json            # Vercel configuration
 ```
 
 ## **Success Metrics**
@@ -130,3 +133,22 @@ src/
 ## **Implementation Notes**
 
 The scaffold prioritises developer ergonomics: an empty tool directory still yields a working chat demo. All wiring for streaming, approvals, and extensibility is in place, so future tools bolt on without touching core code.
+
+### **Vercel Configuration**
+
+The project uses Vite for the frontend and Vercel Functions for API endpoints. A `vercel.json` file configures the Edge Runtime for the API functions:
+
+```json
+{
+  "functions": {
+    "api/chat.ts": {
+      "runtime": "@vercel/edge"
+    },
+    "api/approvals.ts": {
+      "runtime": "@vercel/edge"
+    }
+  }
+}
+```
+
+This approach maintains the fast development experience of Vite while leveraging Vercel's Edge Runtime for the agent APIs.

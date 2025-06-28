@@ -1,0 +1,9 @@
+# Initial demo ui prompt
+
+The first step in building this project was to build the basic ui structure, without back-end functionality. I used Claude Opus 4 and the following prompt:
+
+```
+please help me make a prototype of a web app:
+
+I want to build a demonstration of a chat servicing use case that shows a number of separate components all working in concert:  1. a customer-facing chat UI (left third of the web app): from the point of view of a consumer, with a chat dialogue, a message composition field, and a send button  2. a call center chat agent UI (right third of the web app): from the point of view of a call center agent; similar basic ui as the customer chat ui. the two have the same structure and layout, and share the same visual design language, but are themed to look distinct from one another  3. a diagram/flow chart/representation of the agent runtime/application that orchestrates conversations (middle third of the web app): the job of this panel is to show how chat messages are received from a customer, hit an initial agent loop for planning, call tools as necessary, if needed, seek approval from a human in the loop (the agent we previously mentioned), and a response is synthesized. during the demo, the parts of the diagram that are processing the custoemr request, or synthesizing an answer, should "light up" to show the viewer of this demo what is happening. the runtime layer visualization should include representations of at least two internal tools, and one external/remote MCP server  don't worry about back-end functionality, we will figure that out together; for now, please make a responsive web app with clean, modern, and slightly whimsical style. we will deploy to vercel (to please choose appropriate technologies and frameworks), and should use tailwind css. consider using a flow-chart specific implementation like React Flow for the visualization of the agent runtime
+```
