@@ -55,14 +55,14 @@
   - [x] 2.2 Implement `server/src/lib/loadTools.ts` for tool discovery system (empty array initially)
   - [x] 2.3 Create `server/src/types/agent.ts` with TypeScript interfaces for agent configuration
   - [x] 2.4 Configure agent initialization with personal loading from persona.ts
-  - [ ] 2.4.1 **CLEANUP**: Remove vestigial frontend code from Vercel migration
+  - [x] 2.4.1 **CLEANUP**: Remove vestigial frontend code from Vercel migration
     - Remove `src/lib/vercel-agent.ts` (3.0KB, Vercel SDK integration)
     - Remove `src/lib/vercel-cli-helper.ts` (4.3KB, Vercel CLI wrapper)  
     - Remove `src/lib/ai-agent-vercel-integration.ts` (6.2KB, AI Agent + Vercel integration)
     - Remove `src/types/agent.ts` (217 lines, OpenAI Agents SDK imports - not needed in frontend)
     - Remove empty `src/config/` directory (persona.ts moved to backend)
     - Verify frontend only imports simple UI types from `src/types/index.ts`
-  - [ ] 2.5 Implement agent lifecycle management and error handling
+  - [x] 2.5 Implement agent lifecycle management and error handling
 - [ ] 3.0 Implement Server-Sent Events Streaming
   - [ ] 3.1 Create `server/src/routes/chat.ts` with POST endpoint for chat messages
   - [ ] 3.2 Set up SSE headers (Content-Type, Cache-Control, Connection, CORS)

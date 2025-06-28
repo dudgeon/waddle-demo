@@ -24,7 +24,7 @@ app.use(cors({
 }));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ 
     status: 'healthy', 
     timestamp: new Date().toISOString(),
@@ -51,7 +51,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Error handling middleware
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Error:', err);
   res.status(500).json({ 
     error: 'Internal server error',

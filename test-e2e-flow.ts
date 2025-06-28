@@ -3,7 +3,7 @@
  * Tests the complete integration without requiring a running server
  */
 
-import { getAgent } from './src/lib/agent';
+import { getAgent } from './server/src/lib/agent';
 import { run } from '@openai/agents';
 
 async function testEndToEndChatFlow() {

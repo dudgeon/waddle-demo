@@ -1,6 +1,6 @@
-import { getAgent } from '../src/lib/agent';
+import { getAgent } from '../server/src/lib/agent';
 import { run } from '@openai/agents';
-import type { ChatMessage } from '../src/types/agent';
+import type { ChatMessage } from '../server/src/types/agent';
 
 // Vercel Edge Runtime configuration
 export const config = {
