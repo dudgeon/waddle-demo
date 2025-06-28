@@ -1,10 +1,10 @@
 # Waddle Demo
 
-A demo for blended agentic tool calling and human in the loop interactions, now enhanced with the latest OpenAI Agents SDK.
+A demo for blended agentic tool calling and human in the loop interactions, now enhanced with the latest OpenAI Agents SDK (TypeScript).
 
 ## Overview
 
-This project demonstrates advanced AI agent workflows using the OpenAI Agents SDK, featuring:
+This project demonstrates advanced AI agent workflows using the OpenAI Agents SDK (TypeScript), featuring:
 
 - **Multi-agent collaboration** with specialized agents
 - **Function tools** for custom capabilities
@@ -26,15 +26,8 @@ waddle-demo/
 │   │   └── index.ts             # TypeScript type definitions
 │   └── utils/
 │       └── styleHelpers.ts      # Styling utilities
-├── docs/
-│   └── openai-agents-sdk/       # OpenAI Agents SDK documentation
-│       ├── README.md            # Comprehensive SDK guide
-│       ├── quick-start.md       # Quick start tutorial
-│       ├── api-reference.md     # API documentation
-│       └── examples.py          # Code examples
 ├── chat-service-demo.tsx        # Main chat service demo component
-├── requirements.txt             # Python dependencies
-├── test_openai_agents.py        # SDK installation test script
+├── test-agents-sdk.ts           # TypeScript SDK installation test
 └── package.json                 # Node.js dependencies
 ```
 
@@ -55,11 +48,11 @@ waddle-demo/
 3. **View the demo**:
    Open http://localhost:5174 in your browser
 
-### OpenAI Agents SDK (Python)
+### OpenAI Agents SDK (TypeScript)
 
-1. **Install the SDK**:
+1. **Dependencies are already installed**:
    ```bash
-   pip install openai-agents
+   npm install  # Includes @openai/agents
    ```
 
 2. **Set your API key**:
@@ -69,12 +62,7 @@ waddle-demo/
 
 3. **Test the installation**:
    ```bash
-   python test_openai_agents.py
-   ```
-
-4. **Run examples**:
-   ```bash
-   python docs/openai-agents-sdk/examples.py
+   npx tsx test-agents-sdk.ts
    ```
 
 ## Features
@@ -88,23 +76,21 @@ waddle-demo/
 ### OpenAI Agents SDK Integration
 - **Multi-agent workflows** with specialized agents
 - **Function tools** for custom capabilities
-- **Structured outputs** using Pydantic models
+- **Structured outputs** using Zod schemas
 - **Async operations** for concurrent processing
 - **Streaming responses** for real-time interaction
 - **Built-in tracing** for debugging and monitoring
 
 ## Documentation
 
-### OpenAI Agents SDK
-- [**Quick Start Guide**](docs/openai-agents-sdk/quick-start.md) - Get up and running in 5 minutes
-- [**Complete Documentation**](docs/openai-agents-sdk/README.md) - Comprehensive SDK guide
-- [**API Reference**](docs/openai-agents-sdk/api-reference.md) - Detailed API documentation
-- [**Code Examples**](docs/openai-agents-sdk/examples.py) - Practical usage examples
+### OpenAI Agents SDK (TypeScript)
+- [**Official Documentation**](https://openai.github.io/openai-agents-js/) - Complete TypeScript SDK guide
+- [**GitHub Repository**](https://github.com/openai/openai-agents-js) - Source code and examples
+- [**Examples Directory**](https://github.com/openai/openai-agents-js/tree/main/examples) - Practical usage examples
 
 ### External Resources
-- [Official OpenAI Agents SDK Docs](https://openai.github.io/openai-agents-python/)
-- [GitHub Repository](https://github.com/openai/openai-agents-python)
-- [Multi-Agent Portfolio Example](https://cookbook.openai.com/examples/agents_sdk/multi-agent-portfolio-collaboration/multi_agent_portfolio_collaboration)
+- [OpenAI Agents JS Documentation](https://openai.github.io/openai-agents-js/)
+- [Multi-Agent Workflows Guide](https://github.com/openai/openai-agents-js/blob/main/AGENTS.md)
 
 ## Development
 
@@ -120,16 +106,16 @@ npm run build
 npm run preview
 ```
 
-### Python Development
+### TypeScript Development
 ```bash
 # Install dependencies
-pip install -r requirements.txt
+npm install
 
 # Run tests
-python test_openai_agents.py
+npx tsx test-agents-sdk.ts
 
-# Run examples
-python docs/openai-agents-sdk/examples.py
+# Check examples online
+open https://github.com/openai/openai-agents-js/tree/main/examples
 ```
 
 ## Environment Variables
@@ -147,8 +133,8 @@ OPENAI_TRACE_ENABLED=true
 ## Key Technologies
 
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS
-- **AI/ML**: OpenAI Agents SDK, GPT-4, Function Calling
-- **Python**: Pydantic, AsyncIO, Python 3.9+
+- **AI/ML**: OpenAI Agents SDK (TypeScript), GPT-4, Function Calling
+- **TypeScript**: Zod, AsyncIO, Node.js 22+
 - **Development**: Hot Module Replacement, ESLint, TypeScript
 
 ## Use Cases
@@ -174,14 +160,14 @@ This demo showcases patterns for:
 ### Common Issues
 
 1. **OpenAI API Key**: Ensure your API key is set correctly
-2. **Python Version**: Requires Python 3.9 or higher
-3. **Dependencies**: Try creating a fresh virtual environment
+2. **Node.js Version**: Requires Node.js 22 or higher
+3. **Dependencies**: Try deleting `node_modules` and running `npm install`
 4. **Port Conflicts**: Vite will automatically find an available port
 
 ### Getting Help
 
-- Check the [troubleshooting guide](docs/openai-agents-sdk/quick-start.md#troubleshooting)
-- Review [GitHub issues](https://github.com/openai/openai-agents-python/issues)
+- Check the [official documentation](https://openai.github.io/openai-agents-js/)
+- Review [GitHub issues](https://github.com/openai/openai-agents-js/issues)
 - Join the [OpenAI Community](https://community.openai.com/)
 
 ## License
@@ -193,4 +179,4 @@ This project is open source. Check individual dependencies for their respective 
 - [OpenAI](https://openai.com/) for the Agents SDK
 - [React](https://reactjs.org/) and [Vite](https://vitejs.dev/) teams
 - [Tailwind CSS](https://tailwindcss.com/) for styling
-- [Pydantic](https://pydantic.dev/) for data validation
+- [Zod](https://zod.dev/) for schema validation
