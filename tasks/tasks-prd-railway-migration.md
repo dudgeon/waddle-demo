@@ -63,7 +63,7 @@
     - Remove empty `src/config/` directory (persona.ts moved to backend)
     - Verify frontend only imports simple UI types from `src/types/index.ts`
   - [x] 2.5 Implement agent lifecycle management and error handling
-- [ ] 3.0 Implement Server-Sent Events Streaming
+- [x] 3.0 Implement Server-Sent Events Streaming
   - [x] 3.1 Create `server/src/routes/chat.ts` with POST endpoint for chat messages
   - [x] 3.2 Set up SSE headers (Content-Type, Cache-Control, Connection, CORS)
   - [x] 3.3 Implement OpenAI Agents SDK runner integration with streaming response handling
