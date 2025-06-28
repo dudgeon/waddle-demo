@@ -142,14 +142,14 @@ export default function ChatServiceDemo() {
   const handleAgentSend = () => {
     if (agentInput.trim()) {
       const newMessage: Message = { 
-        id: agentMessages.length + 1, 
+        id: messageIdCounter.current++, 
         text: agentInput, 
         sender: 'agent' 
       };
       setAgentMessages([...agentMessages, newMessage]);
       
       const customerMsg: Message = { 
-        id: customerMessages.length + 1, 
+        id: messageIdCounter.current++, 
         text: agentInput, 
         sender: 'agent' 
       };
@@ -170,14 +170,14 @@ export default function ChatServiceDemo() {
       setActiveStep('respond');
       setTimeout(() => {
         const agentMsg: Message = { 
-          id: agentMessages.length + 1, 
+          id: messageIdCounter.current++, 
           text: pendingResponse, 
           sender: 'agent' 
         };
         setAgentMessages([...agentMessages, agentMsg]);
         
         const customerMsg: Message = { 
-          id: customerMessages.length + 1, 
+          id: messageIdCounter.current++, 
           text: pendingResponse, 
           sender: 'agent' 
         };
@@ -365,7 +365,7 @@ export default function ChatServiceDemo() {
                             stroke="rgb(168, 85, 247)"
                             strokeWidth="2"
                             className="animate-pulse"
-                            transform="translate(50%, 0)"
+                            transform="translate(50, 0)"
                           />
                           <path
                             d="M 0,0 L 0,40"
@@ -373,7 +373,7 @@ export default function ChatServiceDemo() {
                             stroke="rgb(168, 85, 247)"
                             strokeWidth="2"
                             className="animate-pulse"
-                            transform="translate(50%, 0)"
+                            transform="translate(50, 0)"
                           />
                           <path
                             d="M 0,0 Q 0,20 80,40"
@@ -381,7 +381,7 @@ export default function ChatServiceDemo() {
                             stroke="rgb(168, 85, 247)"
                             strokeWidth="2"
                             className="animate-pulse"
-                            transform="translate(50%, 0)"
+                            transform="translate(50, 0)"
                           />
                         </svg>
                       </div>
@@ -412,7 +412,7 @@ export default function ChatServiceDemo() {
                             stroke="rgb(168, 85, 247)"
                             strokeWidth="2"
                             className="animate-pulse"
-                            transform="translate(50%, 0)"
+                            transform="translate(50, 0)"
                           />
                           <path
                             d="M 0,0 L 0,40"
@@ -420,7 +420,7 @@ export default function ChatServiceDemo() {
                             stroke="rgb(168, 85, 247)"
                             strokeWidth="2"
                             className="animate-pulse"
-                            transform="translate(50%, 0)"
+                            transform="translate(50, 0)"
                           />
                           <path
                             d="M 80,0 Q 80,20 0,40"
@@ -428,7 +428,7 @@ export default function ChatServiceDemo() {
                             stroke="rgb(168, 85, 247)"
                             strokeWidth="2"
                             className="animate-pulse"
-                            transform="translate(50%, 0)"
+                            transform="translate(50, 0)"
                           />
                         </svg>
                       </div>

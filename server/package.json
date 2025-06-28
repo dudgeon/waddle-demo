@@ -4,7 +4,8 @@
   "description": "Express.js backend server for waddle-demo with OpenAI Agents SDK integration",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev-clean": "lsof -ti:3001 | xargs kill -9 2>/dev/null || true",
+    "dev": "npm run dev-clean && tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "clean": "rm -rf dist"

@@ -3,11 +3,11 @@ import cors from 'cors';
 import path from 'path';
 import dotenv from 'dotenv';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from project root
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 
 // Basic middleware setup
 app.use(express.json());
@@ -60,9 +60,45 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-}); 
+// Enhanced server startup with port conflict handling
+const startServer = async () => {
+  try {
+    const server = app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`Health check: http://localhost:${PORT}/health`);
+    });
+
+    // Handle server errors
+    server.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use!`);
+        console.error('💡 Try running: npm run dev-clean');
+        console.error('💡 Or check for other processes: lsof -ti:3001');
+        process.exit(1);
+      } else {
+        console.error('❌ Server failed to start:', error.message);
+        process.exit(1);
+      }
+    });
+
+    // Graceful shutdown handling
+    const gracefulShutdown = (signal: string) => {
+      console.log(`\n🛑 Received ${signal}, shutting down gracefully...`);
+      server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+      });
+    };
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// Start the server
+startServer(); 

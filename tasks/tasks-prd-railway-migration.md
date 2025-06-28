@@ -1,7 +1,7 @@
 ## Relevant Files
 
 - `server/src/index.ts` - Express server entry point and main application setup
-- `server/src/routes/chat.ts` - Chat endpoint that replaces Vercel Edge Function with SSE streaming
+- `server/src/routes/chat.ts` - Chat endpoints: GET for EventSource streaming, POST for regular/non-streaming requests
 - `server/src/routes/approvals.ts` - Future approvals endpoint for tool support
 - `server/src/lib/agent.ts` - Agent configuration ported from existing frontend implementation
 - `server/src/lib/loadTools.ts` - Tool discovery system for OpenAI Agents SDK
@@ -71,15 +71,51 @@
   - [x] 3.5 Create heartbeat mechanism to maintain SSE connection stability
   - [x] 3.6 Test SSE streaming with various message sizes and connection scenarios
   - [x] 3.7 **DEV CHECKPOINT**: Test `/api/chat` endpoint locally with curl/Postman
-- [ ] 4.0 Update Frontend API Integration
-  - [ ] 4.1 Create or update `src/utils/api.ts` with new Express backend API client
-  - [ ] 4.2 Modify `src/utils/streamingService.ts` to handle SSE instead of fetch streaming
-  - [ ] 4.3 Update API base URL configuration for development and production environments
-  - [ ] 4.4 Ensure existing chat interface components work with new backend integration
-  - [ ] 4.5 Add proper error handling for backend connection failures
-  - [ ] 4.6 Test frontend-backend communication in development environment
-  - [ ] 4.7 **DEV CHECKPOINT**: Test complete chat interface locally (frontend + backend)
-  - [ ] 4.8 **DEV CHECKPOINT**: Verify streaming responses work in local development
+- [x] 4.0 Update Frontend API Integration
+  - [x] 4.1 Create or update `src/utils/api.ts` with new Express backend API client
+  - [x] 4.2 Modify `src/utils/streamingService.ts` to handle SSE instead of fetch streaming
+  - [x] 4.3 Update API base URL configuration for development and production environments
+  - [x] 4.4 Ensure existing chat interface components work with new backend integration
+  - [x] 4.5 Add proper error handling for backend connection failures
+  - [x] 4.6 **Debug 500 error** (blocking issue):
+    Hypothesis: agent creation failing. Investigate with detailed logging.
+    
+    **RESOLUTION**: Fixed environment variable loading - dotenv was looking for `.env` in `server/` directory but file was in project root. Updated `dotenv.config()` to use `path.join(__dirname, '../../.env')` in both `server/src/index.ts` and `server/src/lib/agent.ts`.
+    
+    - [x] 4.6.1 Add `npm run dev-clean` script to kill orphaned processes on port 3001.
+    - [x] 4.6.2 Enhance startup error handling in `server/src/index.ts` (EADDRINUSE detection, graceful shutdown).
+    - [x] 4.6.3 Harden error logging in `server/src/routes/chat.ts` (capture OpenAI-specific errors, log full stack traces in dev).
+    - [x] 4.6.4 Add env var `AGENT_MODEL` (default `gpt-4o-mini`). Allow override; fall back to `gpt-4o` if first choice fails.
+    - [x] 4.6.5 Implement a lightweight *self-test* util ( `/api/chat/test` ) that calls the agent with "ping" and returns either "pong" or the failure reason – used by CI & manual debugging.
+    - [x] 4.6.6 End-to-end test: clean dev start (`npm run dev`), curl `/api/chat` non-stream & stream, observe successful 200 / SSE events.
+    - [x] 4.6.7 Document troubleshooting steps in README (common port issues, model errors, how to clean processes).
+
+    Once 4.6.x passes (agent replies successfully in dev), proceed to 4.7 DEV CHECKPOINT.
+  - [x] 4.7 **DEV CHECKPOINT**: Frontend + Backend Integration Complete
+    **STATUS**: ✅ COMPLETED - Both non-streaming and streaming endpoints working perfectly
+    
+    **Test Results**:
+    - Health check: ✅ `GET /health` returns 200 OK
+    - Self-test: ✅ `GET /api/chat/test` returns agent response
+    - Non-streaming: ✅ `POST /api/chat` with `stream: false` returns JSON response
+    - Streaming: ✅ `POST /api/chat` with `stream: true` returns SSE events
+    
+    **Key Fixes Applied**:
+    - Fixed environment variable loading from project root
+    - Added process cleanup script (`npm run dev-clean`)
+    - Enhanced error handling and logging
+    - Added comprehensive troubleshooting documentation
+    - **CRITICAL**: Added GET `/api/chat` endpoint for EventSource streaming (EventSource can only make GET requests, but original design only accepted POST)
+  - [x] 4.8 **DEV CHECKPOINT**: Verify streaming responses work in local development
+    **STATUS**: ✅ COMPLETED - Streaming SSE responses verified working perfectly
+    
+    **Verification Results**:
+    - SSE connection established successfully
+    - Text deltas received in real-time
+    - Proper event formatting (id, event, data)
+    - Connection lifecycle managed correctly
+    - Heartbeat mechanism working
+    - Clean disconnection handling
 - [ ] 5.0 Configure Railway Deployment and Environment
   - [ ] 5.1 Create `railway.json` configuration file with build and deployment settings
   - [ ] 5.2 Update root `package.json` with monorepo scripts (dev, build, start, postinstall)

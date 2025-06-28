@@ -1,11 +1,12 @@
 import { Agent } from '@openai/agents';
 import dotenv from 'dotenv';
+import path from 'path';
 import { getAgentConfig as getPersonaConfig } from '../config/persona';
 import { loadTools, convertToolsForAgent } from './loadTools';
 import type { AgentConfig } from '../types/agent';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from project root
+dotenv.config({ path: path.join(__dirname, '../../../.env') });
 
 /**
  * Custom error classes for agent lifecycle management
@@ -121,18 +122,30 @@ export function getAgentConfig(): AgentConfig {
  */
 export async function createAgent(): Promise<Agent> {
   try {
+    console.log('[Agent] Starting agent creation...');
+    
     // Validate environment first
+    console.log('[Agent] Validating environment...');
     validateEnvironment();
+    console.log('[Agent] Environment validation passed');
     
     // Get agent configuration from persona.ts
+    console.log('[Agent] Loading agent configuration...');
     const config = getAgentConfig();
+    console.log('[Agent] Agent configuration loaded:', {
+      name: config.name,
+      model: config.model,
+      personaLength: config.persona.length
+    });
     
     // Load available tools with error handling
+    console.log('[Agent] Loading tools...');
     let toolDefinitions: any[] = [];
     let tools: any[] = [];
     try {
       toolDefinitions = await loadTools();
       tools = convertToolsForAgent(toolDefinitions);
+      console.log('[Agent] Tools loaded successfully:', tools.length);
     } catch (error) {
       console.warn('[Agent] Failed to load tools, continuing without tools:', error);
       toolDefinitions = [];
@@ -140,12 +153,22 @@ export async function createAgent(): Promise<Agent> {
     }
     
     // Create the agent with configuration
+    console.log('[Agent] Creating OpenAI Agent instance...');
+    console.log('[Agent] Agent config for OpenAI:', {
+      name: config.name,
+      model: config.model,
+      instructionsLength: config.persona.length,
+      toolsCount: tools.length
+    });
+    
     const agent = new Agent({
       name: config.name,
       model: config.model,
       instructions: config.persona,
       tools: tools,
     });
+    
+    console.log('[Agent] OpenAI Agent instance created successfully');
     
     // Log agent creation in development
     if (config.settings.enableDebugLogging) {
@@ -159,6 +182,14 @@ export async function createAgent(): Promise<Agent> {
     
     return agent;
   } catch (error) {
+    console.error('[Agent] Agent creation failed at step:', error);
+    console.error('[Agent] Full error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      cause: error instanceof Error && 'cause' in error ? error.cause : undefined
+    });
+    
     if (error instanceof AgentConfigurationError) {
       throw error;
     }

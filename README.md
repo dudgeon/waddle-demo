@@ -164,11 +164,87 @@ This demo showcases patterns for:
 3. **Dependencies**: Try deleting `node_modules` and running `npm install`
 4. **Port Conflicts**: Vite will automatically find an available port
 
-### Getting Help
+### Backend Development Issues
 
-- Check the [official documentation](https://openai.github.io/openai-agents-js/)
-- Review [GitHub issues](https://github.com/openai/openai-agents-js/issues)
-- Join the [OpenAI Community](https://community.openai.com/)
+#### Port Conflicts (EADDRINUSE)
+If you encounter "Port 3001 is already in use" errors:
+
+```bash
+# Clean up orphaned processes
+cd server
+npm run dev-clean
+
+# Or manually kill processes
+lsof -ti:3001 | xargs kill -9
+
+# Check for running processes
+lsof -i:3001
+```
+
+#### Environment Variables Not Loading
+If the server can't find `OPENAI_API_KEY`:
+
+1. **Check .env file location**: Ensure `.env` is in the project root (not in `server/`)
+2. **Verify .env contents**:
+   ```bash
+   cat .env
+   # Should show: OPENAI_API_KEY=sk-...
+   ```
+3. **Check dotenv configuration**: The server loads `.env` from project root via `dotenv.config({ path: path.join(__dirname, '../../.env') })`
+
+#### Agent Initialization Failures
+If the agent fails to initialize:
+
+1. **Test the self-test endpoint**:
+   ```bash
+   curl http://localhost:3001/api/chat/test
+   ```
+2. **Check API key format**: Should start with `sk-proj-` or `sk-`
+3. **Verify model availability**: Default is `gpt-4o-mini`, override with `AGENT_MODEL` env var
+4. **Check server logs**: Look for detailed error messages in console
+
+#### Streaming Issues
+If Server-Sent Events (SSE) don't work:
+
+1. **Test non-streaming first**:
+   ```bash
+   curl -X POST http://localhost:3001/api/chat \
+     -H "Content-Type: application/json" \
+     -d '{"message": "test", "sessionId": "test", "stream": false}'
+   ```
+2. **Test streaming**:
+   ```bash
+   curl -X POST http://localhost:3001/api/chat \
+     -H "Content-Type: application/json" \
+     -H "Accept: text/event-stream" \
+     -d '{"message": "test", "sessionId": "test", "stream": true}' \
+     --no-buffer
+   ```
+
+#### Development Workflow
+For clean development restarts:
+
+```bash
+# Backend
+cd server
+npm run dev-clean  # Kill orphaned processes
+npm run dev        # Start with clean slate
+
+# Frontend (separate terminal)
+cd ..
+npm run dev
+```
+
+#### Health Checks
+Monitor backend health:
+
+```bash
+# Basic health check
+curl http://localhost:3001/health
+
+# Agent self-test
+curl http://localhost:3001/api/chat/test
+```
 
 ## License
 

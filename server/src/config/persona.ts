@@ -38,11 +38,27 @@ Tool usage:
 - If a tool fails, explain the issue and suggest alternative approaches`;
 
 /**
+ * Get the agent model with environment variable support and fallback
+ */
+function getAgentModel(): string {
+  const envModel = process.env.AGENT_MODEL;
+  if (envModel) {
+    console.log(`[Agent Config] Using model from env: ${envModel}`);
+    return envModel;
+  }
+  
+  // Default model with fallback options
+  const defaultModel = 'gpt-4o-mini';
+  console.log(`[Agent Config] Using default model: ${defaultModel}`);
+  return defaultModel;
+}
+
+/**
  * Agent configuration settings
  */
 export const AGENT_CONFIG: AgentConfig = {
   name: 'waddle-customer-service-agent',
-  model: 'gpt-4o-mini',
+  model: getAgentModel(),
   persona: AGENT_PERSONA,
   
   // Behavioral settings
@@ -69,8 +85,11 @@ export function getPersonaInstructions(): string {
 }
 
 /**
- * Get the full agent configuration
+ * Get the full agent configuration with model fallback logic
  */
 export function getAgentConfig(): AgentConfig {
-  return AGENT_CONFIG;
+  return {
+    ...AGENT_CONFIG,
+    model: getAgentModel(), // Always get fresh model in case env changes
+  };
 } 

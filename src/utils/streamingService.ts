@@ -3,6 +3,8 @@
  * Handles real-time streaming responses from the OpenAI Agents SDK
  */
 
+import { createStreamingUrl, sendChatMessage as apiSendMessage, healthCheck, type ChatRequest } from './api';
+
 export interface StreamEvent {
   id?: string;
   event: string;
@@ -30,6 +32,11 @@ export interface StreamingCallbacks {
 export class StreamingChatService {
   private eventSource: EventSource | null = null;
   private callbacks: StreamingCallbacks = {};
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 3;
+  private reconnectDelay: number = 1000; // Start with 1 second
+  private lastMessage: string = '';
+  private lastSessionId: string = '';
 
   /**
    * Start a streaming chat session
@@ -40,31 +47,62 @@ export class StreamingChatService {
     callbacks: StreamingCallbacks = {}
   ): Promise<void> {
     this.callbacks = callbacks;
+    this.lastMessage = message;
+    this.lastSessionId = sessionId || `session-${Date.now()}`;
+    this.reconnectAttempts = 0;
 
     // Close any existing connection
     this.closeStream();
 
+    await this.attemptConnection();
+  }
+
+  /**
+   * Attempt to establish a streaming connection with retry logic
+   */
+  private async attemptConnection(): Promise<void> {
     try {
-      // Create URL with query parameters for the stream
-      const url = new URL('/api/chat', window.location.origin);
-      url.searchParams.set('message', message);
-      url.searchParams.set('stream', 'true');
-      if (sessionId) {
-        url.searchParams.set('sessionId', sessionId);
-      }
+      // Create streaming URL using the API client
+      const streamingRequest: ChatRequest = {
+        message: this.lastMessage,
+        sessionId: this.lastSessionId,
+        stream: true
+      };
+      const url = createStreamingUrl(streamingRequest);
 
       // Create EventSource connection
-      this.eventSource = new EventSource(url.toString());
+      this.eventSource = new EventSource(url);
 
       // Set up event listeners
       this.setupEventListeners();
 
     } catch (error) {
       console.error('Failed to start streaming:', error);
+      this.handleConnectionError(error);
+    }
+  }
+
+  /**
+   * Handle connection errors with retry logic
+   */
+  private handleConnectionError(error: any): void {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to start streaming';
+    
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1); // Exponential backoff
+      
+      console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms...`);
+      
+      setTimeout(() => {
+        this.attemptConnection();
+      }, delay);
+    } else {
+      // Max attempts reached, notify error
       this.callbacks.onError?.({
-        error: error instanceof Error ? error.message : 'Failed to start streaming',
-        code: 'STREAM_START_ERROR',
-        sessionId: sessionId || 'unknown',
+        error: `Connection failed after ${this.maxReconnectAttempts} attempts: ${errorMessage}`,
+        code: 'MAX_RECONNECT_ATTEMPTS_EXCEEDED',
+        sessionId: this.lastSessionId,
         timestamp: new Date().toISOString()
       });
     }
@@ -75,23 +113,13 @@ export class StreamingChatService {
    */
   async sendMessage(message: string, sessionId?: string): Promise<any> {
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message,
-          stream: false,
-          sessionId: sessionId || `session-${Date.now()}`
-        }),
-      });
+      const request: ChatRequest = {
+        message,
+        sessionId: sessionId || `session-${Date.now()}`,
+        stream: false
+      };
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
+      return await apiSendMessage(request);
     } catch (error) {
       console.error('Failed to send message:', error);
       throw error;
@@ -113,6 +141,19 @@ export class StreamingChatService {
    */
   isStreaming(): boolean {
     return this.eventSource !== null && this.eventSource.readyState === EventSource.OPEN;
+  }
+
+  /**
+   * Check backend health before attempting connections
+   */
+  async checkBackendHealth(): Promise<boolean> {
+    try {
+      await healthCheck();
+      return true;
+    } catch (error) {
+      console.error('Backend health check failed:', error);
+      return false;
+    }
   }
 
   /**
@@ -179,17 +220,27 @@ export class StreamingChatService {
     // EventSource error handling
     this.eventSource.onerror = (event) => {
       console.error('EventSource error:', event);
-      this.callbacks.onError?.({
-        error: 'Connection error occurred',
-        code: 'CONNECTION_ERROR',
-        sessionId: 'unknown',
-        timestamp: new Date().toISOString()
-      });
+      
+      // Check if this is a connection failure that warrants retry
+      if (this.eventSource?.readyState === EventSource.CLOSED) {
+        console.log('EventSource connection closed, attempting to reconnect...');
+        this.handleConnectionError(new Error('EventSource connection closed'));
+      } else {
+        // Other types of errors
+        this.callbacks.onError?.({
+          error: 'Connection error occurred',
+          code: 'CONNECTION_ERROR',
+          sessionId: this.lastSessionId,
+          timestamp: new Date().toISOString()
+        });
+      }
     };
 
     // EventSource open event
     this.eventSource.onopen = () => {
       console.log('EventSource connection opened');
+      // Reset reconnection attempts on successful connection
+      this.reconnectAttempts = 0;
     };
   }
 }
