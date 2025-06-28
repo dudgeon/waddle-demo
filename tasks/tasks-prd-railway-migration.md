@@ -117,10 +117,10 @@
     - Heartbeat mechanism working
     - Clean disconnection handling
 - [ ] 5.0 Configure Railway Deployment and Environment
-  - [ ] 5.1 Create `railway.json` configuration file with build and deployment settings
-  - [ ] 5.2 Update root `package.json` with monorepo scripts (dev, build, start, postinstall)
-  - [ ] 5.3 Use Railway MCP to create new project and configure initial deployment
-  - [ ] 5.4 Configure environment variables using Railway MCP (OPENAI_API_KEY, AGENT_PERSONA, etc.)
+      - [x] 5.1 Create `railway.json` configuration file with build and deployment settings
+        - [x] 5.2 Update root `package.json` with monorepo scripts (dev, build, start, postinstall)
+    - [x] 5.3 Link to existing Railway project (waddle-demo-railway) and configure deployment
+    - [x] 5.4 Configure environment variables using Railway CLI (OPENAI_API_KEY, AGENT_MODEL, etc.)
   - [ ] 5.5 Deploy initial backend-only version to Railway and verify server starts
   - [ ] 5.6 **AUTOMATED TEST**: Use Stagehand MCP to test backend `/api/chat` endpoint in production
   - [ ] 5.7 **PRODUCTION CHECKPOINT 1**: Verify automated test results and manually test if needed

@@ -44,6 +44,11 @@ class ApiClient {
       return import.meta.env.VITE_API_URL;
     }
     
+    // Use config baseUrl if provided and not empty
+    if (this.config.baseUrl) {
+      return this.config.baseUrl;
+    }
+    
     // In development, use the Express server on port 3001
     if (import.meta.env?.DEV || window.location.hostname === 'localhost') {
       return 'http://localhost:3001';
