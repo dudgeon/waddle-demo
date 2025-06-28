@@ -12,7 +12,7 @@
     "build": "npm run build:frontend && npm run build:backend",
     "start": "cd server && npm start",
     "preview": "vite preview",
-    "postinstall": "cd server && npm ci"
+    "postinstall": "cd server && npm ci --include=dev"
   },
   "dependencies": {
     "@openai/agents": "^0.0.10",
