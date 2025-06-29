@@ -234,6 +234,7 @@ import type { AgentContext, RunContext } from './types.js';
 
 /**
  * Dynamic instructions function for {Agent Name}
+ * Example: For a billing agent, this would be buildBillingInstructions
  */
 function build{AgentName}Instructions(runContext: RunContext<AgentContext>, _agent: any): string {
   const { context } = runContext;
@@ -243,10 +244,11 @@ function build{AgentName}Instructions(runContext: RunContext<AgentContext>, _age
 
 /**
  * Create the {agent name} agent
+ * Example: For a billing agent, this would be createBillingAgent
  */
 export function create{AgentName}Agent(tools: any[] = []) {
   return new Agent<AgentContext>({
-    name: '{agent-name}-agent',
+    name: '{agent-name}-agent',  // Example: 'billing-agent'
     model: process.env.{AGENT_NAME}_AGENT_MODEL || process.env.AGENT_MODEL || 'gpt-4o-mini',
     instructions: build{AgentName}Instructions,
     tools: tools,
@@ -268,15 +270,15 @@ export type AgentType = 'triage' | 'billing' | 'technical' | 'your-new-agent';
 ```typescript
 // In loadAgents() method:
 const { create{AgentName}Agent } = await import('../agents/{agent-name}-agent.js');
-const {agentName}Agent = create{AgentName}Agent(tools);
+const yourNewAgent = create{AgentName}Agent(tools);
 
 registry.register({
   type: 'your-new-agent',
-  agent: {agentName}Agent,
+  agent: yourNewAgent,
   description: 'Agent description for registry',
   canReceiveHandoffs: true, // or false for entry points
   metadata: {
-    model: ({agentName}Agent.model || 'gpt-4o-mini').toString(),
+    model: process.env.{AGENT_NAME}_AGENT_MODEL || process.env.AGENT_MODEL || 'gpt-4o-mini',
     toolCount: tools.length,
     hasStructuredOutput: false, // or true if using Zod
     supportedCapabilities: ['capability1', 'capability2'],
@@ -284,29 +286,309 @@ registry.register({
 });
 ```
 
-#### 4. Update Multi-Agent Routes (Optional)
+#### 4. Update Multi-Agent Routes (Usually Not Needed)
 **File**: `server/src/routes/multi-agent-chat.ts`
 
-If you want direct agent access, update the route handlers to support the new agent type.
+The routes already support dynamic agent selection via the `agentType` parameter:
+- GET: `/api/chat?agentType=your-new-agent&message=...`
+- POST: `/api/chat` with body `{"agentType": "your-new-agent", "message": "..."}`
+
+No changes needed unless you want to:
+- Change the default agent (currently 'triage')
+- Add agent-specific validation or preprocessing
+- Create dedicated endpoints for specific agents
 
 #### 5. Test Integration
 - **Unit Test**: Create agent with `create{AgentName}Agent([])`
 - **Registry Test**: Verify agent appears in `AgentRegistry.getAll()`
 - **Runtime Test**: Call `MultiAgentManager.runAgent('your-new-agent', 'test message', context)`
+- **API Test**: 
+  ```bash
+  # Test via GET
+  curl "http://localhost:3001/api/chat?agentType=your-new-agent&message=Hello&stream=false"
+  
+  # Test via POST
+  curl -X POST http://localhost:3001/api/chat \
+    -H "Content-Type: application/json" \
+    -d '{"agentType": "your-new-agent", "message": "Hello", "stream": false}'
+  ```
 
-#### 6. Update This Documentation
+#### 6. Update This Documentation (REQUIRED)
+**CRITICAL**: You MUST update AGENT_ARCHITECTURE.md after creating a new agent.
+
 Add the new agent to the "Current Agent Inventory" section above with:
 - Registry ID, Agent Name, File location
 - Model configuration and environment variables  
 - Purpose and capabilities
 - Runtime configuration example
+- Update the Quick Reference section agent count
+- Update the Last Updated date
+
+**Example addition to Current Agent Inventory:**
+```markdown
+### 2. Billing Agent
+- **Registry ID**: `billing`
+- **Agent Name**: `billing-agent`
+- **File**: `server/src/agents/billing-agent.ts`
+- **Model**: `gpt-4o-mini` (configurable via `BILLING_AGENT_MODEL` or `AGENT_MODEL`)
+- **Purpose**: Handle billing inquiries, payment processing, and subscription management
+- **Tools**: Payment API, Subscription Manager, Invoice Generator
+- **Context**: Full AgentContext injection with user/session data
+- **Instructions**: Dynamic function `buildBillingInstructions(runContext, agent)`
+- **Status**: ✅ Active
+```
 
 ### Required File Changes Summary
 1. **Create**: `server/src/agents/{agent-name}-agent.ts`
 2. **Modify**: `server/src/agents/types.ts` (add AgentType)
 3. **Modify**: `server/src/lib/multi-agent-manager.ts` (register agent)
-4. **Modify**: `AGENT_ARCHITECTURE.md` (update documentation)
+4. **REQUIRED**: `AGENT_ARCHITECTURE.md` (update agent inventory, counts, and date)
 5. **Optional**: Update route handlers if direct access needed
+6. **Optional**: Update `getDefaultAgent()` if changing default agent
+
+### Changing the Default Agent
+If you want your new agent to be the default (instead of 'triage'):
+
+**File**: `server/src/lib/multi-agent-manager.ts`
+```typescript
+getDefaultAgent(): AgentType {
+  return 'your-new-agent'; // Changed from 'triage'
+}
+```
+
+Note: The default agent is used when no `agentType` is specified in API requests.
+
+## Creating New Tools
+
+### Tool System Overview
+
+The application uses a custom tool system that integrates with the OpenAI Agents SDK:
+- **Tool Definition**: Custom `ToolDefinition` interface in `server/src/lib/loadTools.ts`
+- **Tool Registry**: Singleton registry for managing available tools
+- **SDK Integration**: `convertToolsForAgent()` function converts to [SDK tool format](https://openai.github.io/openai-agents-js/guides/tools/)
+- **Tool Categories**: `database`, `crm`, `api`, `mcp`, `utility`
+- **Shared Tools**: All agents share the same tool set loaded at startup
+
+### Step-by-Step Guide
+
+#### 1. Create Tool Definition File
+**Location**: `server/src/tools/{tool-name}.ts` (create `tools` directory if needed)
+
+```typescript
+import type { ToolDefinition } from '../lib/loadTools.js';
+
+/**
+ * Example: Weather lookup tool
+ * Replace with your actual tool implementation
+ */
+export const weatherLookupTool: ToolDefinition = {
+  name: 'weather_lookup',  // Must be unique, use snake_case
+  description: 'Get current weather information for a specified city',
+  category: 'api',  // Choose: database, crm, api, mcp, utility
+  parameters: {
+    type: 'object',
+    properties: {
+      city: {
+        type: 'string',
+        description: 'The city to get weather for'
+      },
+      units: {
+        type: 'string',
+        enum: ['celsius', 'fahrenheit'],
+        description: 'Temperature units',
+        default: 'celsius'
+      }
+    },
+    required: ['city']
+  },
+  implementation: async (args: Record<string, any>) => {
+    const { city, units = 'celsius' } = args;
+    
+    // Your tool implementation here
+    // This example returns mock data
+    return {
+      city,
+      temperature: units === 'celsius' ? 22 : 72,
+      conditions: 'Partly cloudy',
+      humidity: 65
+    };
+  },
+  requiresApproval: false  // Set to true for sensitive operations
+};
+```
+
+#### 2. Register Tool in loadTools()
+**File**: `server/src/lib/loadTools.ts`
+
+Add your tool import and registration around line 150 in the `loadTools()` function:
+
+```typescript
+export async function loadTools(): Promise<ToolDefinition[]> {
+  if (toolRegistry.isInitialized()) {
+    return toolRegistry.getAll();
+  }
+
+  try {
+    // Import your tool
+    const { weatherLookupTool } = await import('../tools/weather-lookup.js');
+    
+    // Add to tools array
+    const tools: ToolDefinition[] = [
+      weatherLookupTool,
+      // Add more tools here
+    ];
+
+    // Register tools (existing code)
+    tools.forEach(tool => toolRegistry.register(tool));
+    
+    // ... rest of existing code
+  }
+}
+```
+
+#### 3. Tool Implementation Best Practices
+Based on [SDK Function Tools guidance](https://openai.github.io/openai-agents-js/guides/tools/#function-tools):
+
+- **Clear Descriptions**: Write explicit, detailed descriptions for tools and parameters
+- **Error Handling**: Always handle errors gracefully in your implementation
+- **Validation**: Validate inputs even though parameters schema provides basic validation
+- **Async Operations**: All tool implementations should return a Promise
+- **Return Types**: Return structured data that agents can easily interpret
+
+#### 4. Test Your Tool
+
+**Unit Test** (create `server/src/tools/__tests__/{tool-name}.test.ts`):
+```typescript
+import { weatherLookupTool } from '../weather-lookup.js';
+
+describe('Weather Lookup Tool', () => {
+  it('should return weather data for a city', async () => {
+    const result = await weatherLookupTool.implementation({
+      city: 'London',
+      units: 'celsius'
+    });
+    
+    expect(result).toHaveProperty('city', 'London');
+    expect(result).toHaveProperty('temperature');
+    expect(result).toHaveProperty('conditions');
+  });
+});
+```
+
+**Manual Test via executeTool**:
+```typescript
+// In a test file or REPL
+import { executeTool, loadTools } from '../lib/loadTools.js';
+
+await loadTools();
+const result = await executeTool('weather_lookup', { city: 'Paris' });
+console.log(result);
+```
+
+**Integration Test with Agent**:
+```bash
+# Test the tool through an agent
+curl -X POST http://localhost:3001/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "What is the weather in Tokyo?",
+    "stream": false
+  }'
+```
+
+#### 5. Update This Documentation (REQUIRED)
+**CRITICAL**: You MUST update AGENT_ARCHITECTURE.md after creating a new tool.
+
+1. **Update Tool Count** in Quick Reference section (line ~8)
+2. **Update Last Updated** date
+3. **Move Tool from Planned to Implemented** in the Tool Integration Architecture section (line ~602)
+
+**Example update to Planned Tools table:**
+```markdown
+| Tool Name | Category | Purpose | Agent(s) | Status |
+|-----------|----------|---------|----------|--------|
+| Weather Lookup | `api` | Get weather information | All | ✅ Implemented |
+```
+
+### Tool Categories Explained
+
+Reference: `server/src/lib/loadTools.ts` line 33
+
+- **`database`**: Tools that query or modify database records
+- **`crm`**: Customer relationship management integrations
+- **`api`**: External API calls and web services
+- **`mcp`**: Model Context Protocol server integrations
+- **`utility`**: Helper functions and internal utilities
+
+Use `getToolRegistry().getByCategory('api')` to retrieve tools by category.
+
+### SDK Integration Notes
+
+Our tool system differs from the [SDK's tool() helper](https://openai.github.io/openai-agents-js/guides/tools/#function-tools):
+
+| Feature | Our System | SDK Native |
+|---------|------------|------------|
+| Definition | `ToolDefinition` interface | `tool()` helper function |
+| Parameters | JSON Schema | Zod schemas |
+| Execution | `executeTool()` function | Direct function call |
+| Registration | `ToolRegistry` class | Inline with agent |
+
+The `convertToolsForAgent()` function (line 189 in `loadTools.ts`) handles the conversion from our format to the SDK's expected format.
+
+### Advanced Tool Features
+
+#### Tool Approval
+Set `requiresApproval: true` for sensitive operations:
+```typescript
+requiresApproval: true  // Agent will seek user approval before execution
+```
+Use `getApprovalRequiredTools()` to list all tools requiring approval.
+
+#### Dynamic Tool Loading
+For development, use `reloadTools()` to refresh tools without restarting:
+```typescript
+import { reloadTools } from './lib/loadTools.js';
+await reloadTools();
+```
+
+### Required File Changes Summary
+1. **Create**: `server/src/tools/{tool-name}.ts`
+2. **Modify**: `server/src/lib/loadTools.ts` (import and add to tools array)
+3. **REQUIRED**: `AGENT_ARCHITECTURE.md` (update tool inventory and counts)
+4. **Optional**: Create unit tests in `server/src/tools/__tests__/`
+
+### Common Issues and Solutions
+
+1. **Tool Not Available to Agent**
+   - Verify tool is imported in `loadTools()`
+   - Check that `toolRegistry.register()` is called
+   - Restart the server after adding tools
+
+2. **Parameter Validation Errors**
+   - Ensure parameters follow JSON Schema format
+   - Test parameter schema with a JSON Schema validator
+   - Check required fields are properly defined
+
+3. **Tool Execution Fails**
+   - Check implementation returns a Promise
+   - Verify error handling in implementation
+   - Review logs with `NODE_ENV=development`
+
+### Testing Commands Reference
+```bash
+# Start server with debug logging
+NODE_ENV=development npm start
+
+# Test tool listing
+curl http://localhost:3001/api/chat/test
+
+# Test tool execution through agent
+curl -X POST http://localhost:3001/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Use the weather_lookup tool for London", "stream": false}'
+```
+
+For more information on tool types and patterns, see the [OpenAI Agents SDK Tools Guide](https://openai.github.io/openai-agents-js/guides/tools/).
 
 ## Future Agent Expansion
 
