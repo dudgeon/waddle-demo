@@ -6,15 +6,17 @@ A full-stack demo for blended agentic tool calling and human in the loop interac
 
 **📋 Frontend Component Reference:** [FRONTEND_COMPONENT_HIERARCHY.md](./FRONTEND_COMPONENT_HIERARCHY.md)
 
+**🤖 Agent Architecture Guide:** [AGENT_ARCHITECTURE.md](./AGENT_ARCHITECTURE.md)
+
 ## Overview
 
 This project demonstrates advanced AI agent workflows using a modern full-stack architecture:
 
 **Backend (Express.js + OpenAI Agents SDK)**:
 - **Express.js API server** with TypeScript
-- **OpenAI Agents SDK integration** for AI agent management
+- **OpenAI Agents SDK integration** with multi-agent architecture
 - **Server-Sent Events (SSE)** for real-time streaming
-- **Singleton agent management** with retry logic and graceful shutdown
+- **Dynamic agent registry** with context injection and tool loading
 - **Health monitoring** and self-test endpoints
 
 **Frontend (React + TypeScript)**:
@@ -29,15 +31,17 @@ This project demonstrates advanced AI agent workflows using a modern full-stack 
 waddle-demo/
 ├── server/                       # Express.js backend
 │   ├── src/
-│   │   ├── config/
-│   │   │   └── persona.ts       # Agent configuration and persona
+│   │   ├── agents/              # Agent definitions and registry
+│   │   │   ├── index.ts         # Agent registry and discovery
+│   │   │   ├── types.ts         # Agent interfaces and types
+│   │   │   └── triage-agent.ts  # Triage agent implementation
 │   │   ├── lib/
-│   │   │   ├── agent.ts         # Agent manager with OpenAI SDK
-│   │   │   └── loadTools.ts     # Tool loading utilities
+│   │   │   ├── multi-agent-manager.ts  # Multi-agent lifecycle
+│   │   │   └── loadTools.ts     # Tool loading and registry
 │   │   ├── routes/
-│   │   │   └── chat.ts          # Chat API endpoints (GET/POST)
+│   │   │   └── multi-agent-chat.ts  # Multi-agent API endpoints
 │   │   ├── types/
-│   │   │   └── agent.ts         # TypeScript type definitions
+│   │   │   └── agent.ts         # Core type definitions
 │   │   └── index.ts             # Express server entry point
 │   ├── package.json             # Backend dependencies
 │   └── tsconfig.json            # Backend TypeScript config
@@ -171,11 +175,14 @@ curl -X POST http://localhost:3001/api/chat \
 - **Hot module replacement** with Vite for fast development
 
 ### Agent Capabilities
-- **Customer service persona** with specialized knowledge
+- **Multi-agent architecture** with dynamic agent registry
+- **Context-aware agents** with session and user data injection
+- **Tool integration** ready with extensible tool loading system
 - **Streaming responses** for real-time interaction
-- **Session management** with conversation context
 - **Error recovery** with automatic retry and fallback handling
 - **Configurable models** via environment variables
+
+For detailed agent architecture and development guides, see [AGENT_ARCHITECTURE.md](./AGENT_ARCHITECTURE.md).
 
 ## Environment Variables
 
@@ -187,6 +194,9 @@ OPENAI_API_KEY=sk-your-api-key-here
 
 # Optional: Custom model (defaults to gpt-4o-mini)
 AGENT_MODEL=gpt-4o
+
+# Optional: Specific agent model override
+TRIAGE_AGENT_MODEL=gpt-4o
 
 # Optional: Frontend API URL override (auto-detected in development)
 VITE_API_URL=http://localhost:3001
@@ -307,6 +317,12 @@ All major DOM elements have descriptive IDs (e.g., `#customer-send-button`, `#fl
 3. Make your changes
 4. Test thoroughly
 5. Submit a pull request
+
+### Development Resources
+- **Adding new agents**: See the [Creating New Agents](./AGENT_ARCHITECTURE.md#creating-new-agents) guide
+- **Adding new tools**: See the [Creating New Tools](./AGENT_ARCHITECTURE.md#creating-new-tools) guide
+- **Frontend components**: See [FRONTEND_COMPONENT_HIERARCHY.md](./FRONTEND_COMPONENT_HIERARCHY.md)
+- **Architecture overview**: See [AGENT_ARCHITECTURE.md](./AGENT_ARCHITECTURE.md)
 
 ## Troubleshooting
 
