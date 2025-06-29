@@ -217,6 +217,7 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
       const result = await manager.runAgent(targetAgent, message, context, { stream: true });
 
       let eventId = 1;
+      let accumulatedText = ''; // Track the complete response text
 
       // Handle streaming events using async iteration
       for await (const event of result.rawResponse) {
@@ -230,6 +231,7 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
         if (event.type === 'raw_model_stream_event') {
           const rawEvent = event.data;
           if (rawEvent.type === 'output_text_delta') {
+            accumulatedText += rawEvent.delta; // Accumulate the text
             const sseMessage = formatSSEMessage('text_delta', {
               delta: rawEvent.delta,
               sessionId: context.sessionId,
@@ -292,7 +294,7 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
       // Send final result if client is still connected
       if (isClientConnected && !res.destroyed) {
         const finalMessage = formatSSEMessage('final_result', {
-          final_output: result.finalOutput,
+          final_output: accumulatedText || result.finalOutput || 'No response generated',
           agent_type: result.agentType,
           execution_time: result.metadata.executionTime,
           handoff_occurred: result.metadata.handoffOccurred,
@@ -458,6 +460,7 @@ router.post('/chat', async (req: express.Request, res: express.Response) => {
         const result = await manager.runAgent(targetAgent, message, context, { stream: true });
 
         let eventId = 1;
+        let accumulatedText = ''; // Track the complete response text
 
         // Handle streaming events using async iteration
         for await (const event of result.rawResponse) {
@@ -470,6 +473,7 @@ router.post('/chat', async (req: express.Request, res: express.Response) => {
           if (event.type === 'raw_model_stream_event') {
             const rawEvent = event.data;
             if (rawEvent.type === 'output_text_delta') {
+              accumulatedText += rawEvent.delta; // Accumulate the text
               const sseMessage = formatSSEMessage('text_delta', {
                 delta: rawEvent.delta,
                 sessionId: context.sessionId,
@@ -496,7 +500,7 @@ router.post('/chat', async (req: express.Request, res: express.Response) => {
         // Send final result if client is still connected
         if (isClientConnected && !res.destroyed) {
           const finalMessage = formatSSEMessage('final_result', {
-            final_output: result.finalOutput,
+            final_output: accumulatedText || result.finalOutput || 'No response generated',
             agent_type: result.agentType,
             execution_time: result.metadata.executionTime,
             handoff_occurred: result.metadata.handoffOccurred,
