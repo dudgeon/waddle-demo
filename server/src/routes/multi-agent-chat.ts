@@ -1,46 +1,61 @@
+/**
+ * Multi-Agent Chat Routes - SDK-aligned chat endpoints with agent routing
+ * 
+ * Replaces the singleton chat routes with a multi-agent system that
+ * supports agent routing, context injection, and handoffs.
+ */
+
 import express from 'express';
-import { run } from '@openai/agents';
-import { AgentManager, AgentRuntimeError } from '../lib/legacy-agent-wrapper.js';
+import { MultiAgentManager } from '../lib/multi-agent-manager.js';
+import type { AgentType } from '../agents/types.js';
 import type { ChatMessage } from '../types/agent.js';
 
 const router = express.Router();
 
 /**
- * GET /api/chat/test - Lightweight agent self-test endpoint
- * Tests agent initialization and basic functionality
+ * GET /api/chat/test - Multi-agent system self-test endpoint
  */
 router.get('/chat/test', async (_req: express.Request, res: express.Response) => {
   try {
-    console.log('[Chat Test] Starting agent self-test...');
+    console.log('[Multi-Agent Test] Starting multi-agent system self-test...');
     
-    // Test agent initialization
-    const agentManager = AgentManager.getInstance();
-    const agent = await agentManager.getAgent();
+    const manager = MultiAgentManager.getInstance();
+    await manager.initialize();
     
-    console.log('[Chat Test] Agent initialized successfully');
+    console.log('[Multi-Agent Test] Multi-agent system initialized successfully');
     
-    // Test basic agent functionality with a simple ping
-    const testMessage = 'ping';
-    console.log('[Chat Test] Testing agent with message:', testMessage);
+    // Test triage agent with a simple message
+    const testMessage = 'Hello, I need help with my account';
+    const context = manager.createContext({
+      sessionId: `test-${Date.now()}`,
+      source: 'test',
+    });
     
-    const result = await run(agent, testMessage);
+    console.log('[Multi-Agent Test] Testing triage agent with message:', testMessage);
     
-    console.log('[Chat Test] Agent responded successfully');
+    const result = await manager.runAgent('triage', testMessage, context);
+    
+    console.log('[Multi-Agent Test] Triage agent responded successfully');
+    
+    // Get system status
+    const status = manager.getStatus();
     
     // Return success response
     res.json({
       status: 'success',
-      message: 'Agent self-test passed',
-      agentResponse: result.finalOutput || 'No response generated',
-      agentName: result.lastAgent?.name || 'waddle-agent',
+      message: 'Multi-agent system self-test passed',
+      agentResponse: result.finalOutput,
+      agentUsed: result.agentType,
+      executionTime: result.metadata.executionTime,
+      handoffOccurred: result.metadata.handoffOccurred,
+      systemStatus: status,
       timestamp: new Date().toISOString(),
       testMessage: testMessage
     });
     
   } catch (error) {
-    console.error('[Chat Test] Self-test failed:', error);
+    console.error('[Multi-Agent Test] Self-test failed:', error);
     
-    // Enhanced error details for debugging
     const errorDetails = {
       name: error instanceof Error ? error.name : 'Unknown',
       message: error instanceof Error ? error.message : String(error),
@@ -50,17 +65,53 @@ router.get('/chat/test', async (_req: express.Request, res: express.Response) =>
     
     res.status(500).json({
       status: 'failed',
-      message: 'Agent self-test failed',
+      message: 'Multi-agent system self-test failed',
       error: errorDetails,
       troubleshooting: {
         checkApiKey: 'Verify OPENAI_API_KEY is set and valid',
         checkModel: 'Try setting AGENT_MODEL=gpt-4o if gpt-4o-mini fails',
         checkNetwork: 'Ensure internet connection for OpenAI API calls',
+        checkAgents: 'Verify all agent definitions are valid',
         checkLogs: 'Check server logs for detailed error information'
       }
     });
   }
 });
+
+/**
+ * GET /api/chat/status - Multi-agent system status endpoint
+ */
+router.get('/chat/status', async (_req: express.Request, res: express.Response) => {
+  try {
+    const manager = MultiAgentManager.getInstance();
+    const status = manager.getStatus();
+    const healthy = await manager.healthCheck();
+    
+    res.json({
+      healthy,
+      status,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('[Multi-Agent Status] Status check failed:', error);
+    res.status(500).json({
+      healthy: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+/**
+ * Helper function to format SSE messages
+ */
+const formatSSEMessage = (type: string, data: any, id?: string) => {
+  let sseMessage = '';
+  if (id) sseMessage += `id: ${id}\n`;
+  sseMessage += `event: ${type}\n`;
+  sseMessage += `data: ${JSON.stringify(data)}\n\n`;
+  return sseMessage;
+};
 
 /**
  * GET /api/chat - Handle streaming requests via Server-Sent Events
@@ -69,7 +120,7 @@ router.get('/chat/test', async (_req: express.Request, res: express.Response) =>
 router.get('/chat', async (req: express.Request, res: express.Response) => {
   try {
     // Extract message parameters from query string
-    const { message, sessionId, stream } = req.query;
+    const { message, sessionId, stream, agentType, userId } = req.query;
 
     // Validate required fields
     if (!message || typeof message !== 'string') {
@@ -87,9 +138,19 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
       });
     }
 
-    // Get the agent instance
-    const agentManager = AgentManager.getInstance();
-    const agent = await agentManager.getAgent();
+    // Initialize multi-agent system
+    const manager = MultiAgentManager.getInstance();
+    await manager.initialize();
+
+    // Create agent context
+    const context = manager.createContext({
+      sessionId: sessionId as string || `session-${Date.now()}`,
+      userId: userId as string,
+      source: 'ui',
+    });
+
+    // Determine which agent to use (default to triage)
+    const targetAgent: AgentType = (agentType as AgentType) || manager.getDefaultAgent();
 
     // Set up Server-Sent Events headers
     res.writeHead(200, {
@@ -105,7 +166,7 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
     let heartbeatInterval: NodeJS.Timeout | null = null;
     
     req.on('close', () => {
-      console.log('[Chat Route GET] Client disconnected');
+      console.log('[Multi-Agent Chat GET] Client disconnected');
       isClientConnected = false;
       if (heartbeatInterval) {
         clearInterval(heartbeatInterval);
@@ -113,32 +174,30 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
     });
 
     req.on('error', (error) => {
-      console.error('[Chat Route GET] Client connection error:', error);
+      console.error('[Multi-Agent Chat GET] Client connection error:', error);
       isClientConnected = false;
       if (heartbeatInterval) {
         clearInterval(heartbeatInterval);
       }
     });
 
-    // Set up heartbeat mechanism to keep connection alive
+    // Set up heartbeat mechanism
     heartbeatInterval = setInterval(() => {
       if (isClientConnected && !res.destroyed) {
-        // Send heartbeat event every 30 seconds
         const heartbeatEvent = formatSSEMessage('heartbeat', {
           timestamp: new Date().toISOString(),
-          sessionId: sessionId || `session-${Date.now()}`
+          sessionId: context.sessionId
         });
         try {
           res.write(heartbeatEvent);
         } catch (error) {
-          console.error('[Chat Route GET] Heartbeat write error:', error);
+          console.error('[Multi-Agent Chat GET] Heartbeat write error:', error);
           isClientConnected = false;
           if (heartbeatInterval) {
             clearInterval(heartbeatInterval);
           }
         }
       } else {
-        // Clear interval if client disconnected
         if (heartbeatInterval) {
           clearInterval(heartbeatInterval);
         }
@@ -148,47 +207,45 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
     try {
       // Send connection established event
       const connectEvent = formatSSEMessage('connected', {
-        sessionId: sessionId || `session-${Date.now()}`,
+        sessionId: context.sessionId,
+        agentType: targetAgent,
         timestamp: new Date().toISOString()
       });
       res.write(connectEvent);
 
       // Run the agent with streaming enabled
-      const result = await run(agent, message, {
-        stream: true,
-      });
+      const result = await manager.runAgent(targetAgent, message, context, { stream: true });
 
       let eventId = 1;
 
       // Handle streaming events using async iteration
-      for await (const event of result) {
+      for await (const event of result.rawResponse) {
         // Check if client is still connected before processing events
         if (!isClientConnected) {
-          console.log('[Chat Route GET] Client disconnected, stopping stream processing');
+          console.log('[Multi-Agent Chat GET] Client disconnected, stopping stream processing');
           break;
         }
 
         // Process different types of stream events
         if (event.type === 'raw_model_stream_event') {
-          // Handle raw model stream events (text deltas)
           const rawEvent = event.data;
           if (rawEvent.type === 'output_text_delta') {
             const sseMessage = formatSSEMessage('text_delta', {
               delta: rawEvent.delta,
-              sessionId: sessionId || `session-${Date.now()}`
+              sessionId: context.sessionId,
+              agentType: targetAgent
             }, `event-${eventId++}`);
             
-            // Check connection before writing
             if (isClientConnected && !res.destroyed) {
               res.write(sseMessage);
             }
           } else if (rawEvent.type === 'response_done') {
             const sseMessage = formatSSEMessage('response_completed', {
               status: 'completed',
-              sessionId: sessionId || `session-${Date.now()}`
+              sessionId: context.sessionId,
+              agentType: targetAgent
             }, `event-${eventId++}`);
             
-            // Check connection before writing
             if (isClientConnected && !res.destroyed) {
               res.write(sseMessage);
             }
@@ -199,10 +256,10 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
             const sseMessage = formatSSEMessage('tool_call', {
               name: event.item.type,
               event_name: event.name,
-              sessionId: sessionId || `session-${Date.now()}`
+              sessionId: context.sessionId,
+              agentType: targetAgent
             }, `event-${eventId++}`);
             
-            // Check connection before writing
             if (isClientConnected && !res.destroyed) {
               res.write(sseMessage);
             }
@@ -210,10 +267,10 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
             const sseMessage = formatSSEMessage('message_created', {
               event_name: event.name,
               item_type: event.item.type,
-              sessionId: sessionId || `session-${Date.now()}`
+              sessionId: context.sessionId,
+              agentType: targetAgent
             }, `event-${eventId++}`);
             
-            // Check connection before writing
             if (isClientConnected && !res.destroyed) {
               res.write(sseMessage);
             }
@@ -222,10 +279,10 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
           // Handle agent handoff events
           const sseMessage = formatSSEMessage('agent_updated', {
             agent_name: event.agent?.name || 'unknown',
-            sessionId: sessionId || `session-${Date.now()}`
+            sessionId: context.sessionId,
+            handoff_occurred: true
           }, `event-${eventId++}`);
           
-          // Check connection before writing
           if (isClientConnected && !res.destroyed) {
             res.write(sseMessage);
           }
@@ -236,30 +293,32 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
       if (isClientConnected && !res.destroyed) {
         const finalMessage = formatSSEMessage('final_result', {
           final_output: result.finalOutput,
-          agent_name: result.lastAgent?.name || 'waddle-agent',
-          usage: result.rawResponses?.[result.rawResponses.length - 1]?.usage || null,
-          sessionId: sessionId || `session-${Date.now()}`,
+          agent_type: result.agentType,
+          execution_time: result.metadata.executionTime,
+          handoff_occurred: result.metadata.handoffOccurred,
+          tools_used: result.metadata.toolsUsed,
+          usage: result.metadata.tokenUsage,
+          sessionId: context.sessionId,
           timestamp: new Date().toISOString()
         }, `event-${eventId++}`);
         res.write(finalMessage);
 
         // Send stream completion event
         const completedEvent = formatSSEMessage('stream_complete', {
-          sessionId: sessionId || `session-${Date.now()}`,
+          sessionId: context.sessionId,
           timestamp: new Date().toISOString()
         }, `event-${eventId++}`);
         res.write(completedEvent);
       }
 
     } catch (streamError) {
-      console.error('[Chat Route GET] Streaming error:', streamError);
+      console.error('[Multi-Agent Chat GET] Streaming error:', streamError);
       
-      // Send error event if client is still connected
       if (isClientConnected && !res.destroyed) {
         const errorEvent = formatSSEMessage('error', {
           error: streamError instanceof Error ? streamError.message : 'Unknown streaming error',
           code: 'STREAMING_ERROR',
-          sessionId: sessionId || `session-${Date.now()}`,
+          sessionId: context.sessionId,
           timestamp: new Date().toISOString()
         });
         res.write(errorEvent);
@@ -277,14 +336,13 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
     }
 
   } catch (error) {
-    console.error('[Chat Route GET] Error processing streaming request:', error);
+    console.error('[Multi-Agent Chat GET] Error processing streaming request:', error);
     
     if (process.env.NODE_ENV === 'development') {
-      console.error('[Chat Route GET] Full error details:', {
+      console.error('[Multi-Agent Chat GET] Full error details:', {
         name: error instanceof Error ? error.name : 'Unknown',
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
-        cause: error instanceof Error && 'cause' in error ? error.cause : undefined
       });
     }
 
@@ -303,22 +361,13 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
 });
 
 /**
- * POST /api/chat - Process chat messages with OpenAI Agent
+ * POST /api/chat - Process chat messages with Multi-Agent system
  * Supports streaming responses using Server-Sent Events (SSE)
  */
-// Helper function to format SSE messages
-const formatSSEMessage = (type: string, data: any, id?: string) => {
-  let sseMessage = '';
-  if (id) sseMessage += `id: ${id}\n`;
-  sseMessage += `event: ${type}\n`;
-  sseMessage += `data: ${JSON.stringify(data)}\n\n`;
-  return sseMessage;
-};
-
 router.post('/chat', async (req: express.Request, res: express.Response) => {
   try {
     // Extract message parameters from request body
-    const { message, sessionId, stream = true } = req.body;
+    const { message, sessionId, stream = true, agentType, userId } = req.body;
 
     // Validate required fields
     if (!message || typeof message !== 'string') {
@@ -328,9 +377,19 @@ router.post('/chat', async (req: express.Request, res: express.Response) => {
       });
     }
 
-    // Get the agent instance
-    const agentManager = AgentManager.getInstance();
-    const agent = await agentManager.getAgent();
+    // Initialize multi-agent system
+    const manager = MultiAgentManager.getInstance();
+    await manager.initialize();
+
+    // Create agent context
+    const context = manager.createContext({
+      sessionId: sessionId || `session-${Date.now()}`,
+      userId,
+      source: 'api',
+    });
+
+    // Determine which agent to use (default to triage)
+    const targetAgent: AgentType = agentType || manager.getDefaultAgent();
 
     // Handle streaming vs non-streaming responses
     if (stream) {
@@ -348,7 +407,7 @@ router.post('/chat', async (req: express.Request, res: express.Response) => {
       let heartbeatInterval: NodeJS.Timeout | null = null;
       
       req.on('close', () => {
-        console.log('[Chat Route] Client disconnected');
+        console.log('[Multi-Agent Chat POST] Client disconnected');
         isClientConnected = false;
         if (heartbeatInterval) {
           clearInterval(heartbeatInterval);
@@ -356,32 +415,30 @@ router.post('/chat', async (req: express.Request, res: express.Response) => {
       });
 
       req.on('error', (error) => {
-        console.error('[Chat Route] Client connection error:', error);
+        console.error('[Multi-Agent Chat POST] Client connection error:', error);
         isClientConnected = false;
         if (heartbeatInterval) {
           clearInterval(heartbeatInterval);
         }
       });
 
-      // Set up heartbeat mechanism to keep connection alive
+      // Set up heartbeat mechanism
       heartbeatInterval = setInterval(() => {
         if (isClientConnected && !res.destroyed) {
-          // Send heartbeat event every 30 seconds
           const heartbeatEvent = formatSSEMessage('heartbeat', {
             timestamp: new Date().toISOString(),
-            sessionId: sessionId || `session-${Date.now()}`
+            sessionId: context.sessionId
           });
           try {
             res.write(heartbeatEvent);
           } catch (error) {
-            console.error('[Chat Route] Heartbeat write error:', error);
+            console.error('[Multi-Agent Chat POST] Heartbeat write error:', error);
             isClientConnected = false;
             if (heartbeatInterval) {
               clearInterval(heartbeatInterval);
             }
           }
         } else {
-          // Clear interval if client disconnected
           if (heartbeatInterval) {
             clearInterval(heartbeatInterval);
           }
@@ -391,84 +448,45 @@ router.post('/chat', async (req: express.Request, res: express.Response) => {
       try {
         // Send connection established event
         const connectEvent = formatSSEMessage('connected', {
-          sessionId: sessionId || `session-${Date.now()}`,
+          sessionId: context.sessionId,
+          agentType: targetAgent,
           timestamp: new Date().toISOString()
         });
         res.write(connectEvent);
 
         // Run the agent with streaming enabled
-        const result = await run(agent, message, {
-          stream: true,
-        });
+        const result = await manager.runAgent(targetAgent, message, context, { stream: true });
 
         let eventId = 1;
 
         // Handle streaming events using async iteration
-        for await (const event of result) {
-          // Check if client is still connected before processing events
+        for await (const event of result.rawResponse) {
           if (!isClientConnected) {
-            console.log('[Chat Route] Client disconnected, stopping stream processing');
+            console.log('[Multi-Agent Chat POST] Client disconnected, stopping stream processing');
             break;
           }
 
-          // Process different types of stream events
+          // Process different types of stream events (same as GET implementation)
           if (event.type === 'raw_model_stream_event') {
-            // Handle raw model stream events (text deltas)
             const rawEvent = event.data;
             if (rawEvent.type === 'output_text_delta') {
               const sseMessage = formatSSEMessage('text_delta', {
                 delta: rawEvent.delta,
-                sessionId: sessionId || `session-${Date.now()}`
+                sessionId: context.sessionId,
+                agentType: targetAgent
               }, `event-${eventId++}`);
               
-              // Check connection before writing
-              if (isClientConnected && !res.destroyed) {
-                res.write(sseMessage);
-              }
-            } else if (rawEvent.type === 'response_done') {
-              const sseMessage = formatSSEMessage('response_completed', {
-                status: 'completed',
-                sessionId: sessionId || `session-${Date.now()}`
-              }, `event-${eventId++}`);
-              
-              // Check connection before writing
-              if (isClientConnected && !res.destroyed) {
-                res.write(sseMessage);
-              }
-            }
-          } else if (event.type === 'run_item_stream_event') {
-            // Handle run item events (tool calls, messages, etc.)
-            if (event.name === 'tool_called') {
-              const sseMessage = formatSSEMessage('tool_call', {
-                name: event.item.type,
-                event_name: event.name,
-                sessionId: sessionId || `session-${Date.now()}`
-              }, `event-${eventId++}`);
-              
-              // Check connection before writing
-              if (isClientConnected && !res.destroyed) {
-                res.write(sseMessage);
-              }
-            } else if (event.name === 'message_output_created') {
-              const sseMessage = formatSSEMessage('message_created', {
-                event_name: event.name,
-                item_type: event.item.type,
-                sessionId: sessionId || `session-${Date.now()}`
-              }, `event-${eventId++}`);
-              
-              // Check connection before writing
               if (isClientConnected && !res.destroyed) {
                 res.write(sseMessage);
               }
             }
           } else if (event.type === 'agent_updated_stream_event') {
-            // Handle agent handoff events
             const sseMessage = formatSSEMessage('agent_updated', {
               agent_name: event.agent?.name || 'unknown',
-              sessionId: sessionId || `session-${Date.now()}`
+              sessionId: context.sessionId,
+              handoff_occurred: true
             }, `event-${eventId++}`);
             
-            // Check connection before writing
             if (isClientConnected && !res.destroyed) {
               res.write(sseMessage);
             }
@@ -479,94 +497,76 @@ router.post('/chat', async (req: express.Request, res: express.Response) => {
         if (isClientConnected && !res.destroyed) {
           const finalMessage = formatSSEMessage('final_result', {
             final_output: result.finalOutput,
-            agent_name: result.lastAgent?.name || 'waddle-agent',
-            usage: result.rawResponses?.[result.rawResponses.length - 1]?.usage || null,
-            sessionId: sessionId || `session-${Date.now()}`,
+            agent_type: result.agentType,
+            execution_time: result.metadata.executionTime,
+            handoff_occurred: result.metadata.handoffOccurred,
+            sessionId: context.sessionId,
             timestamp: new Date().toISOString()
           }, `event-${eventId++}`);
           res.write(finalMessage);
 
-          // Send stream completion event
           const completedEvent = formatSSEMessage('stream_complete', {
-            sessionId: sessionId || `session-${Date.now()}`,
+            sessionId: context.sessionId,
             timestamp: new Date().toISOString()
           }, `event-${eventId++}`);
           res.write(completedEvent);
         }
 
       } catch (streamError) {
-        console.error('[Chat Route] Streaming error:', streamError);
+        console.error('[Multi-Agent Chat POST] Streaming error:', streamError);
         
-        // Send error event if client is still connected
         if (isClientConnected && !res.destroyed) {
           const errorEvent = formatSSEMessage('error', {
             error: streamError instanceof Error ? streamError.message : 'Unknown streaming error',
             code: 'STREAMING_ERROR',
-            sessionId: sessionId || `session-${Date.now()}`,
+            sessionId: context.sessionId,
             timestamp: new Date().toISOString()
           });
           res.write(errorEvent);
         }
       } finally {
-        // Clean up heartbeat interval
         if (heartbeatInterval) {
           clearInterval(heartbeatInterval);
         }
         
-        // Close the SSE connection safely
         if (!res.destroyed) {
           res.end();
         }
-        console.log('[Chat Route] SSE stream ended');
       }
 
     } else {
       // Handle non-streaming response
       try {
-        const result = await run(agent, message);
+        const result = await manager.runAgent(targetAgent, message, context);
 
         const response: ChatMessage = {
           id: `msg-${Date.now()}`,
-          content: result.finalOutput || 'No response generated',
+          content: result.finalOutput,
           role: 'assistant',
           timestamp: new Date(),
-          sessionId: sessionId,
+          sessionId: context.sessionId,
         };
 
-        res.json(response);
+        res.json({
+          ...response,
+          agentType: result.agentType,
+          executionTime: result.metadata.executionTime,
+          handoffOccurred: result.metadata.handoffOccurred,
+        });
       } catch (nonStreamError) {
-        console.error('[Chat Route] Non-streaming error:', nonStreamError);
+        console.error('[Multi-Agent Chat POST] Non-streaming error:', nonStreamError);
         throw nonStreamError;
       }
     }
 
   } catch (error) {
-    console.error('[Chat Route] Request error:', error);
+    console.error('[Multi-Agent Chat POST] Request error:', error);
     
-    // Enhanced error logging for development
     if (process.env.NODE_ENV === 'development') {
-      console.error('[Chat Route] Full error details:', {
+      console.error('[Multi-Agent Chat POST] Full error details:', {
         name: error instanceof Error ? error.name : 'Unknown',
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
-        cause: error instanceof Error && 'cause' in error ? error.cause : undefined,
-        // Log OpenAI-specific error details if available
-        ...(error && typeof error === 'object' && 'response' in error 
-          ? { openaiResponse: error.response } 
-          : {}),
-        ...(error && typeof error === 'object' && 'status' in error 
-          ? { httpStatus: error.status } 
-          : {}),
-      });
-    }
-    
-    // Handle different types of errors
-    if (error instanceof AgentRuntimeError) {
-      return res.status(503).json({
-        error: 'Agent service unavailable',
-        message: error.message,
-        code: 'AGENT_UNAVAILABLE',
-        ...(process.env.NODE_ENV === 'development' ? { stack: error.stack } : {})
       });
     }
     
@@ -582,4 +582,4 @@ router.post('/chat', async (req: express.Request, res: express.Response) => {
   }
 });
 
-export default router; 
+export default router;
