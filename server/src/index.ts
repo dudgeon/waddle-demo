@@ -21,7 +21,7 @@ app.use(express.urlencoded({ extended: true }));
 // CORS configuration for frontend-backend communication
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-railway-domain.railway.app'] // Will be updated with actual domain
+    ? ['https://quiet-sound-684.fly.dev'] // Fly.io domain
     : ['http://localhost:5173', 'http://localhost:3000'], // Vite dev server and other local ports
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

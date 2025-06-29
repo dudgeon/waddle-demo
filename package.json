@@ -15,12 +15,9 @@
     "postinstall": "cd server && npm install --include=dev"
   },
   "dependencies": {
-    "@openai/agents": "^0.0.10",
-    "@openai/agents-realtime": "^0.0.10",
     "lucide-react": "^0.294.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "zod": "^3.25.67"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
