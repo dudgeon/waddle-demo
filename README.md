@@ -4,6 +4,8 @@ A full-stack demo for blended agentic tool calling and human in the loop interac
 
 **🚀 Live Demo:** https://quiet-sound-684.fly.dev/
 
+**📋 Frontend Component Reference:** [FRONTEND_COMPONENT_HIERARCHY.md](./FRONTEND_COMPONENT_HIERARCHY.md)
+
 ## Overview
 
 This project demonstrates advanced AI agent workflows using a modern full-stack architecture:
@@ -284,6 +286,19 @@ This demo showcases patterns for:
 3. **Production-ready Architecture**: Health monitoring, graceful shutdown, error recovery
 4. **Development Workflow**: Hot reload, process management, environment configuration
 5. **API Design**: RESTful endpoints with streaming and non-streaming variants
+
+## Frontend Development
+
+### Component Structure
+See [FRONTEND_COMPONENT_HIERARCHY.md](./FRONTEND_COMPONENT_HIERARCHY.md) for a complete visual guide to all frontend components and their IDs. This document includes:
+
+- Visual tree structure of all DOM elements
+- Three-panel layout documentation (customer/runtime/agent)  
+- ID naming conventions and quick reference table
+- ASCII layout diagrams for easy reference
+
+### Making UI Changes
+All major DOM elements have descriptive IDs (e.g., `#customer-send-button`, `#flow-steps-container`) making it easy to reference specific components when requesting modifications.
 
 ## Contributing
 
