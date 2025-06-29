@@ -26,10 +26,10 @@ graph TB
     %% Multi-Agent System (Primary)
     MAROUTER --> |MultiAgentManager.getInstance| MANAGER[Multi-Agent Manager]
     MANAGER --> |initialize| REGISTRY[Agent Registry]
-    REGISTRY --> |register| CSA[Customer Service Agent]
+    REGISTRY --> |register| TRIAGE[Triage Agent]
     
     %% Agent Runtime Configuration
-    CSA --> |buildTriageInstructions| DYNCONFIG[Dynamic Instructions Function]
+    TRIAGE --> |buildTriageInstructions| DYNCONFIG[Dynamic Instructions Function]
     DYNCONFIG --> |runContext.context| CONTEXT[AgentContext]
     CONTEXT --> |userId, sessionId, isDebug| PERSONALIZED[Personalized Instructions]
     
@@ -42,7 +42,7 @@ graph TB
     WRAPPER --> |redirects to| MANAGER
     
     %% Response Flow
-    CSA --> |run with context| SDKRUN[SDK Run Function]
+    TRIAGE --> |run with context| SDKRUN[SDK Run Function]
     SDKRUN --> |stream true| SSE[Server-Sent Events]
     SDKRUN --> |stream false| JSON[JSON Response]
     SSE --> UI
@@ -55,16 +55,59 @@ graph TB
     classDef ui fill:#fff3e0,stroke:#e65100,stroke-width:2px
     classDef runtime fill:#fff9c4,stroke:#f57f17,stroke-width:2px
     
-    class CSA agent
+    class TRIAGE agent
     class TOOLSYS,AGENTTOOLS tool
     class API,MAROUTER,LEGACY,MANAGER,REGISTRY api
     class UI,CURL ui
     class DYNCONFIG,CONTEXT,PERSONALIZED,SDKRUN runtime
 ```
 
+### Chart Accuracy Maintenance (Critical Process)
+
+**⚠️ REQUIRED BEFORE ANY CHART UPDATES**: All future coding agents must follow this process to ensure Mermaid charts remain accurate and synchronized with the actual codebase.
+
+#### Chart Verification Checklist
+Before updating any Mermaid diagram, complete these verification steps:
+
+1. **Agent Name Verification**:
+   - Check `server/src/agents/` directory for actual agent file names
+   - Verify agent names in chart match the `name` property in agent creation functions
+   - Cross-reference with "Current Agent Inventory" section below
+   - Ensure Registry IDs match the `type` values in agent registration
+
+2. **Implementation Cross-Reference**:
+   - Check `server/src/lib/multi-agent-manager.ts` for registered agent types
+   - Verify chart shows only agents that are actually registered
+   - Confirm agent descriptions match registry descriptions
+   - Validate tool counts and capabilities match reality
+
+3. **Chart Element Validation**:
+   - Ensure all agent nodes in chart exist in codebase
+   - Verify flow connections match actual code execution paths
+   - Check that styling classes are applied to correct node types
+   - Confirm endpoint paths match actual route definitions
+
+4. **Consistency Check**:
+   - Agent display names in chart must match inventory section headers
+   - Registry IDs must be consistent between chart and documentation
+   - Model configurations should reflect actual environment variables
+   - Tool arrays should match what's actually loaded
+
+#### Process for Chart Updates
+1. **Before Changes**: Run the verification checklist above
+2. **Identify Issues**: Document any inconsistencies found
+3. **Source of Truth**: Use actual source code as the authoritative reference
+4. **Update Order**: Fix chart first, then update inventory section to match
+5. **Final Verification**: Re-run checklist to ensure all elements are synchronized
+
+#### Enforcement
+- **Any chart update without following this process will be rejected**
+- **Charts that fail verification must be corrected before proceeding**
+- **When in doubt, check the source code, not existing documentation**
+
 ## Current Agent Inventory (Runtime State)
 
-### 1. Customer Service Agent
+### 1. Triage Agent
 - **Registry ID**: `triage`
 - **Agent Name**: `triage-agent`
 - **File**: `server/src/agents/triage-agent.ts`
@@ -422,11 +465,34 @@ When modifying the agent architecture, **always update this document** by:
    - Update tool loading phases
 
 ### Mermaid Diagram Standards
+
+#### Visual Styling
 - **Agent nodes**: Use `classDef agent fill:#e1f5fe,stroke:#01579b,stroke-width:2px`
 - **Tool nodes**: Use `classDef tool fill:#f3e5f5,stroke:#4a148c,stroke-width:2px` 
 - **API nodes**: Use `classDef api fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px`
 - **UI nodes**: Use `classDef ui fill:#fff3e0,stroke:#e65100,stroke-width:2px`
+- **Runtime nodes**: Use `classDef runtime fill:#fff9c4,stroke:#f57f17,stroke-width:2px`
 - **Flow direction**: Use `TB` (top-bottom) for architecture, `LR` (left-right) for handoffs
+
+#### Accuracy Requirements (MANDATORY)
+- **Before any diagram edit**: Complete the Chart Verification Checklist above
+- **Agent node names**: Must match exactly with `name` property in agent creation functions
+- **Registry references**: Must use actual `type` values from agent registration
+- **Flow connections**: Must reflect actual code execution paths in source files
+- **Endpoint labels**: Must match actual route definitions in `server/src/routes/`
+- **Tool references**: Must match what's actually loaded by `loadTools()` function
+
+#### Verification Sources
+- **Agent names**: Check `server/src/agents/[agent-name]-agent.ts` files
+- **Registry data**: Check `server/src/lib/multi-agent-manager.ts` registration calls  
+- **Route paths**: Check `server/src/routes/` directory for actual endpoint definitions
+- **Tool loading**: Check `server/src/lib/loadTools.ts` for current tool implementations
+
+#### Update Process
+1. **Pre-update**: Run Chart Verification Checklist
+2. **Edit diagrams**: Make changes based on source code verification
+3. **Post-update**: Re-run checklist to ensure accuracy
+4. **Documentation**: Update inventory sections to match corrected charts
 
 ### Critical Maintenance Rules
 1. **NEVER add, remove, or change functionality without explicit permission**
