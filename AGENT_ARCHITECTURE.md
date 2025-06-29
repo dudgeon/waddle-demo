@@ -42,9 +42,9 @@ graph TB
     WRAPPER --> |redirects to| MANAGER
     
     %% Response Flow
-    CSA --> |run(agent, message, context)| SDKRUN[SDK Run Function]
-    SDKRUN --> |stream:true| SSE[Server-Sent Events]
-    SDKRUN --> |stream:false| JSON[JSON Response]
+    CSA --> |run with context| SDKRUN[SDK Run Function]
+    SDKRUN --> |stream true| SSE[Server-Sent Events]
+    SDKRUN --> |stream false| JSON[JSON Response]
     SSE --> UI
     JSON --> UI
     
