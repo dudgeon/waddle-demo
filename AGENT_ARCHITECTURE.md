@@ -4,11 +4,11 @@
 
 ## Quick Reference
 
-- **Current Agents**: 1 (Customer Service Agent - refactored to SDK patterns)
+- **Current Agents**: 1 (Triage Agent)
 - **Active Tools**: 0 (tool loading system ready)
-- **Interaction Methods**: 2 (Multi-Agent Streaming, Legacy Compatibility)
+- **Interaction Methods**: 1 (Multi-Agent System with Streaming Support)
 - **Architecture Pattern**: Multi-Agent Registry with Dynamic Instructions
-- **Last Updated**: 2025-06-29 (Post SDK-alignment refactor)
+- **Last Updated**: 2025-06-29 (Legacy system removed)
 
 ## Runtime Agent Flow (Current State)
 
@@ -18,10 +18,9 @@ graph TB
     UI[React Chat UI] --> |HTTP POST/GET| API[Express API Server]
     CURL[Direct API Calls] --> |HTTP POST/GET| API
     
-    %% API Layer (Multi-Agent + Legacy)
+    %% API Layer (Multi-Agent System)
     API --> |/api/chat/test| MATEST[Multi-Agent Self-Test]
     API --> |/api/chat| MAROUTER[Multi-Agent Chat Router]
-    API --> |/api/legacy/chat| LEGACY[Legacy Chat Router]
     
     %% Multi-Agent System (Primary)
     MAROUTER --> |MultiAgentManager.getInstance| MANAGER[Multi-Agent Manager]
@@ -36,10 +35,6 @@ graph TB
     %% Tool System
     MANAGER --> |loadTools| TOOLSYS[Tool Loading System]
     TOOLSYS --> |convertToolsForAgent| AGENTTOOLS[Agent Tools Array]
-    
-    %% Legacy Compatibility
-    LEGACY --> |LegacyAgentWrapper| WRAPPER[Legacy Wrapper]
-    WRAPPER --> |redirects to| MANAGER
     
     %% Response Flow
     TRIAGE --> |run with context| SDKRUN[SDK Run Function]
@@ -57,7 +52,7 @@ graph TB
     
     class TRIAGE agent
     class TOOLSYS,AGENTTOOLS tool
-    class API,MAROUTER,LEGACY,MANAGER,REGISTRY api
+    class API,MAROUTER,MANAGER,REGISTRY api
     class UI,CURL ui
     class DYNCONFIG,CONTEXT,PERSONALIZED,SDKRUN runtime
 ```
@@ -150,7 +145,6 @@ Before updating any Mermaid diagram, complete these verification steps:
 - [x] **Session management** with context persistence
 - [x] **Multi-agent infrastructure** ready for scaling
 - [x] **Tool integration** framework (empty but functional)
-- [x] **Legacy compatibility** via wrapper pattern
 - [x] **Error recovery** and retry logic
 - [x] **Environment-aware** model selection
 
@@ -389,7 +383,6 @@ graph TB
 - **Context Injection**: Fully implemented with `AgentContext` interface
 - **Dynamic Instructions**: Production-ready with `buildTriageInstructions` pattern
 - **Structured Output**: Ready to enable when SDK types are stable
-- **Legacy Compatibility**: Maintained via `LegacyAgentWrapper`
 
 ### SDK Documentation Links
 - [Agent Concepts](https://openai.github.io/openai-agents-js/guides/agents/)
@@ -405,28 +398,22 @@ server/src/
 ├── agents/
 │   ├── index.ts                # AgentRegistry and agent discovery
 │   ├── types.ts                # AgentContext, AgentType, interfaces
-│   └── triage-agent.ts         # Customer Service Agent (refactored)
+│   └── triage-agent.ts         # Triage Agent implementation
 ├── lib/
 │   ├── multi-agent-manager.ts  # Multi-agent lifecycle management
-│   ├── legacy-agent-wrapper.ts # Backward compatibility wrapper
 │   └── loadTools.ts            # Tool discovery and loading
 ├── routes/
-│   ├── multi-agent-chat.ts     # Primary multi-agent API endpoints
-│   └── chat.ts                 # Legacy compatibility endpoints
+│   └── multi-agent-chat.ts     # Multi-agent API endpoints
 └── types/
-    └── agent.ts                # Legacy type definitions
+    └── agent.ts                # Core type definitions
 ```
 
 ### Key Runtime Functions
 - `MultiAgentManager.getInstance()`: Multi-agent system management
 - `AgentRegistry.register()`: Agent registration and discovery
-- `createTriageAgent(tools)`: Create customer service agent with tools
+- `createTriageAgent(tools)`: Create triage agent with tools
 - `buildTriageInstructions(runContext, agent)`: Dynamic instruction generation
 - `run(agent, message, {context, stream})`: Execute agent with context injection
-
-### Legacy Compatibility Files
-- `legacy-agent-wrapper.ts`: Maintains old API compatibility
-- `routes/chat.ts`: Legacy endpoints (mapped to `/api/legacy/chat`)
 
 ## Development Guidelines (Updated)
 

@@ -41,9 +41,6 @@ app.get('/health', (_req, res) => {
 import multiAgentChatRoutes from './routes/multi-agent-chat.js';
 app.use('/api', multiAgentChatRoutes);
 
-// Legacy chat routes (for backward compatibility during transition)
-import chatRoutes from './routes/chat.js';
-app.use('/api/legacy', chatRoutes);
 
 // Serve static files from built frontend (production only)
 if (process.env.NODE_ENV === 'production') {
