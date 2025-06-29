@@ -2,23 +2,24 @@ import ChatServiceDemo from '../../chat-service-demo';
 
 export default function BlogPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div id="blog-page-container" className="min-h-screen bg-white">
       {/* Mobile Warning Overlay */}
-      <div className="fixed inset-0 z-50 bg-gray-900 bg-opacity-95 flex items-center justify-center p-6 md:hidden">
-        <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+      <div id="mobile-warning-overlay" className="fixed inset-0 z-50 bg-gray-900 bg-opacity-95 flex items-center justify-center p-6 md:hidden">
+        <div id="mobile-warning-modal" className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
+          <div id="desktop-icon" className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          <h2 id="mobile-warning-title" className="text-2xl font-bold text-gray-900 mb-4">
             Best Viewed on Desktop
           </h2>
-          <p className="text-gray-600 mb-6 leading-relaxed">
+          <p id="mobile-warning-message" className="text-gray-600 mb-6 leading-relaxed">
             This interactive demo is optimized for desktop viewing to provide the best experience. 
             Please visit this page on a desktop or laptop computer.
           </p>
           <button 
+            id="continue-anyway-button"
             onClick={() => {
               const overlay = document.querySelector('.fixed.inset-0.z-50') as HTMLElement;
               if (overlay) overlay.style.display = 'none';
@@ -29,23 +30,23 @@ export default function BlogPage() {
           </button>
         </div>
       </div>
-      <div className="flex w-full px-2">
+      <div id="main-content-layout" className="flex w-full px-2">
         {/* Main Content */}
-        <main className="flex-1 px-2 py-12 max-w-none">
-          <article className="prose prose-lg max-w-none">
+        <main id="article-content" className="flex-1 px-2 py-12 max-w-none">
+          <article id="waddle-demo-article" className="prose prose-lg max-w-none">
             {/* Article Header */}
-            <div className="mb-12">
+            <div id="article-header" className="mb-12">
               <h1 id="waddle-servicing-demo" className="text-5xl font-serif text-gray-900 leading-tight mb-4 font-light">
                 "Waddle" Servicing Demo
               </h1>
               <h2 id="demonstrating-hybrid-agentic-tool-calling-and-human-in-the-loop" className="text-2xl font-serif text-gray-600 leading-relaxed mb-8 font-light">
                 Demonstrating hybrid agentic tool calling and human in the loop
               </h2>
-              <div className="flex items-center space-x-4 text-gray-600 mb-8">
-                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
+              <div id="author-byline" className="flex items-center space-x-4 text-gray-600 mb-8">
+                <div id="author-avatar" className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
                   GD
                 </div>
-                <div>
+                <div id="author-info">
                   <p className="font-medium text-gray-900">Geoff Dudgeon</p>
                   <p className="text-sm">June 2025 · 8 min read</p>
                 </div>
@@ -121,10 +122,10 @@ export default function BlogPage() {
         </main>
 
         {/* Sticky Demo Card */}
-        <aside className="w-3/5 pl-2 pr-2">
-          <div className="sticky top-0 h-screen flex items-center">
-            <div className="bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden w-full">
-              <div className="min-h-[600px]">
+        <aside id="demo-sidebar" className="w-3/5 pl-2 pr-2">
+          <div id="sticky-demo-container" className="sticky top-0 h-screen flex items-center">
+            <div id="demo-card" className="bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden w-full">
+              <div id="chat-demo-wrapper" className="min-h-[600px]">
                 <ChatServiceDemo />
               </div>
             </div>

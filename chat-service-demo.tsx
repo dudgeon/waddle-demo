@@ -242,23 +242,23 @@ export default function ChatServiceDemo() {
   };
 
   return (
-    <div className="w-full min-h-[600px] flex bg-gray-50">
+    <div id="chat-service-demo-container" className="w-full min-h-[600px] flex bg-gray-50">
       {/* Customer Chat UI */}
-      <div className="w-[30%] bg-white shadow-xl shadow-purple-100/50 flex flex-col">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 shadow-lg cursor-pointer hover:from-blue-700 hover:to-blue-800 transition-colors" onClick={() => scrollToSection('customer-chat-ui')}>
+      <div id="customer-chat-panel" className="w-[30%] bg-white shadow-xl shadow-purple-100/50 flex flex-col">
+        <div id="customer-chat-header" className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 shadow-lg cursor-pointer hover:from-blue-700 hover:to-blue-800 transition-colors" onClick={() => scrollToSection('customer-chat-ui')}>
           <h2 className="text-xl font-bold flex items-center">
-            <div className="p-2 bg-white/20 rounded-lg mr-3 backdrop-blur-sm">
+            <div id="customer-support-icon" className="p-2 bg-white/20 rounded-lg mr-3 backdrop-blur-sm">
               <User className="w-5 h-5" />
             </div>
             Customer Support
           </h2>
-          <p className="text-xs text-blue-100 mt-1 ml-12">Chat Session #1234 • Click to learn more</p>
+          <p id="chat-session-info" className="text-xs text-blue-100 mt-1 ml-12">Chat Session #1234 • Click to learn more</p>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-2 bg-gradient-to-b from-gray-50 to-white">
-          <div className="space-y-2">
+        <div id="customer-messages-area" className="flex-1 overflow-y-auto p-2 bg-gradient-to-b from-gray-50 to-white">
+          <div id="customer-messages-list" className="space-y-2">
             {customerMessages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.sender === 'customer' ? 'justify-end' : 'justify-start'}`}>
+              <div key={msg.id} id={`customer-message-${msg.id}`} className={`flex ${msg.sender === 'customer' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] ${
                   msg.sender === 'customer' 
                     ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg' 
@@ -272,10 +272,10 @@ export default function ChatServiceDemo() {
               </div>
             ))}
             {isStreaming && streamingText && (
-              <div className="flex justify-start">
+              <div id="streaming-response-message" className="flex justify-start">
                 <div className="max-w-[80%] bg-white border border-gray-200 text-gray-800 shadow-md p-2 rounded-2xl">
                   <p className="text-sm">{streamingText}</p>
-                  <div className="flex items-center mt-1">
+                  <div id="streaming-indicator" className="flex items-center mt-1">
                     <div className="flex space-x-1 mr-2">
                       <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                       <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
@@ -287,7 +287,7 @@ export default function ChatServiceDemo() {
               </div>
             )}
             {activeStep && !streamingText && (
-              <div className="flex justify-start">
+              <div id="agent-processing-indicator" className="flex justify-start">
                 <div className="bg-gray-100 text-gray-600 p-2 rounded-2xl flex items-center shadow-sm">
                   <div className="flex space-x-1 mr-3">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
@@ -301,9 +301,10 @@ export default function ChatServiceDemo() {
           </div>
         </div>
         
-        <div className="p-2 border-t border-gray-100 bg-white">
+        <div id="customer-input-area" className="p-2 border-t border-gray-100 bg-white">
           <div className="flex space-x-2">
             <input
+              id="customer-message-input"
               type="text"
               value={customerInput}
               onChange={(e) => setCustomerInput(e.target.value)}
@@ -317,6 +318,7 @@ export default function ChatServiceDemo() {
               }`}
             />
             <button
+              id="customer-send-button"
               onClick={handleCustomerSend}
               disabled={isStreaming || !customerInput.trim()}
               className={`p-2 rounded-full transition-all ${
@@ -332,21 +334,21 @@ export default function ChatServiceDemo() {
       </div>
 
       {/* Agent Runtime Visualization */}
-      <div className="w-[40%] bg-gradient-to-br from-purple-50 via-white to-blue-50 shadow-inner flex flex-col">
-        <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-3 shadow-lg cursor-pointer hover:from-purple-700 hover:to-purple-800 transition-colors" onClick={() => scrollToSection('agentic-runtime-processing')}>
+      <div id="agent-runtime-panel" className="w-[40%] bg-gradient-to-br from-purple-50 via-white to-blue-50 shadow-inner flex flex-col">
+        <div id="agent-runtime-header" className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-3 shadow-lg cursor-pointer hover:from-purple-700 hover:to-purple-800 transition-colors" onClick={() => scrollToSection('agentic-runtime-processing')}>
           <h2 className="text-xl font-bold flex items-center">
-            <div className="p-2 bg-white/20 rounded-lg mr-3 backdrop-blur-sm">
+            <div id="agent-runtime-icon" className="p-2 bg-white/20 rounded-lg mr-3 backdrop-blur-sm">
               <Zap className="w-5 h-5" />
             </div>
             Agent Runtime Flow
           </h2>
-          <p className="text-xs text-purple-100 mt-1 ml-12">Real-time Processing Pipeline • Click to learn more</p>
+          <p id="processing-pipeline-info" className="text-xs text-purple-100 mt-1 ml-12">Real-time Processing Pipeline • Click to learn more</p>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-2">
-          <div className="space-y-2 max-w-lg mx-auto">
+        <div id="flow-steps-container" className="flex-1 overflow-y-auto p-2">
+          <div id="flow-steps-list" className="space-y-2 max-w-lg mx-auto">
             {FLOW_STEPS.map((step, index) => (
-              <div key={step.id}>
+              <div key={step.id} id={`flow-step-${step.id}`}>
                 {step.id !== 'tools' && (
                   <FlowNode 
                     step={step} 
@@ -456,21 +458,21 @@ export default function ChatServiceDemo() {
       </div>
 
       {/* Agent UI */}
-      <div className="w-[30%] bg-white shadow-xl shadow-purple-100/50 flex flex-col">
-        <div className="bg-gradient-to-r from-emerald-600 to-green-600 text-white p-3 shadow-lg cursor-pointer hover:from-emerald-700 hover:to-green-700 transition-colors" onClick={() => scrollToSection('agent-chat-ui-for-hitl')}>
+      <div id="agent-dashboard-panel" className="w-[30%] bg-white shadow-xl shadow-purple-100/50 flex flex-col">
+        <div id="agent-dashboard-header" className="bg-gradient-to-r from-emerald-600 to-green-600 text-white p-3 shadow-lg cursor-pointer hover:from-emerald-700 hover:to-green-700 transition-colors" onClick={() => scrollToSection('agent-chat-ui-for-hitl')}>
           <h2 className="text-xl font-bold flex items-center">
-            <div className="p-2 bg-white/20 rounded-lg mr-3 backdrop-blur-sm">
+            <div id="agent-dashboard-icon" className="p-2 bg-white/20 rounded-lg mr-3 backdrop-blur-sm">
               <Bot className="w-5 h-5" />
             </div>
             Agent Dashboard
           </h2>
-          <p className="text-xs text-emerald-100 mt-1 ml-12">Agent: {agentInfo.name} • {isStreaming ? 'Processing...' : 'Ready'} • Click to learn more</p>
+          <p id="agent-status-info" className="text-xs text-emerald-100 mt-1 ml-12">Agent: {agentInfo.name} • {isStreaming ? 'Processing...' : 'Ready'} • Click to learn more</p>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-2 bg-gradient-to-b from-gray-50 to-white">
-          <div className="space-y-2">
+        <div id="agent-messages-area" className="flex-1 overflow-y-auto p-2 bg-gradient-to-b from-gray-50 to-white">
+          <div id="agent-messages-list" className="space-y-2">
             {agentMessages.map((msg) => (
-              <div key={msg.id} className="flex justify-start">
+              <div key={msg.id} id={`agent-message-${msg.id}`} className="flex justify-start">
                 <div className="max-w-[80%] bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 text-gray-800 p-2 rounded-2xl shadow-md">
                   <p className="text-sm">{msg.text}</p>
                   <p className="text-xs text-gray-400 mt-1">
@@ -481,16 +483,17 @@ export default function ChatServiceDemo() {
             ))}
             
             {awaitingApproval && (
-              <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-2xl p-5 shadow-xl">
-                <div className="font-bold text-amber-800 mb-3 flex items-center">
+              <div id="approval-required-panel" className="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-2xl p-5 shadow-xl">
+                <div id="approval-header" className="font-bold text-amber-800 mb-3 flex items-center">
                   <AlertCircle className="w-5 h-5 mr-2" />
                   Approval Required
                 </div>
-                <div className="text-gray-700 mb-4 bg-white/70 p-4 rounded-xl border border-amber-100">
+                <div id="pending-response-preview" className="text-gray-700 mb-4 bg-white/70 p-4 rounded-xl border border-amber-100">
                   {pendingResponse}
                 </div>
-                <div className="flex space-x-3">
+                <div id="approval-buttons" className="flex space-x-3">
                   <button
+                    id="approve-send-button"
                     onClick={() => handleAgentApproval(true)}
                     className="flex-1 bg-gradient-to-r from-emerald-500 to-green-500 text-white py-3 px-4 rounded-xl hover:shadow-lg transition-all transform hover:scale-105 flex items-center justify-center font-medium"
                   >
@@ -498,6 +501,7 @@ export default function ChatServiceDemo() {
                     Approve & Send
                   </button>
                   <button
+                    id="modify-response-button"
                     onClick={() => handleAgentApproval(false)}
                     className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 text-white py-3 px-4 rounded-xl hover:shadow-lg transition-all transform hover:scale-105 font-medium"
                   >
@@ -509,9 +513,10 @@ export default function ChatServiceDemo() {
           </div>
         </div>
         
-        <div className="p-4 border-t border-gray-100 bg-white">
+        <div id="agent-input-area" className="p-4 border-t border-gray-100 bg-white">
           <div className="flex space-x-3">
             <input
+              id="agent-message-input"
               type="text"
               value={agentInput}
               onChange={(e) => setAgentInput(e.target.value)}
@@ -520,6 +525,7 @@ export default function ChatServiceDemo() {
               className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all"
             />
             <button
+              id="agent-send-button"
               onClick={handleAgentSend}
               className="bg-gradient-to-r from-emerald-500 to-green-500 text-white p-2 rounded-full hover:shadow-lg transform hover:scale-105 transition-all"
             >
