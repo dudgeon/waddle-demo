@@ -2,6 +2,8 @@
 
 A full-stack demo for blended agentic tool calling and human in the loop interactions, featuring an Express.js backend with OpenAI Agents SDK and a React frontend with real-time streaming.
 
+**🚀 Live Demo:** https://quiet-sound-684.fly.dev/
+
 ## Overview
 
 This project demonstrates advanced AI agent workflows using a modern full-stack architecture:
@@ -53,9 +55,29 @@ waddle-demo/
 └── .env                         # Environment variables (project root)
 ```
 
+## Deployment
+
+This application is deployed on **Fly.io** with auto-scaling and HTTPS enabled.
+
+**Live URL:** https://quiet-sound-684.fly.dev/
+
+### Deployment Architecture
+
+- **Platform**: Fly.io with multi-region support
+- **Auto-scaling**: Machines stop when idle, start on demand
+- **HTTPS**: Force HTTPS with automatic SSL certificates
+- **Build**: Multi-stage Docker build for optimal image size
+- **Environment**: Production environment variables configured as secrets
+
+### Deployment Files
+
+- `Dockerfile`: Multi-stage build configuration
+- `fly.toml`: Fly.io application configuration
+- Environment variables stored as Fly.io secrets
+
 ## Quick Start
 
-### Full-Stack Development
+### Local Development
 
 1. **Install dependencies**:
    ```bash
@@ -180,6 +202,12 @@ npm run dev              # Starts both frontend and backend
 npm run dev:frontend     # Frontend only (port 5174)
 npm run dev:backend      # Backend only (port 3001)
 
+# Production builds
+npm run build            # Build both frontend and backend
+npm run build:frontend   # Build frontend only
+npm run build:backend    # Build backend only
+npm run start            # Start production server
+
 # Backend utilities
 cd server
 npm run dev-clean        # Kill orphaned processes
@@ -187,8 +215,26 @@ npm run build            # Build backend for production
 npm run start            # Start production backend
 
 # Frontend utilities
-npm run build            # Build frontend for production
 npm run preview          # Preview production build
+```
+
+### Fly.io Deployment Commands
+
+```bash
+# Install Fly.io CLI (macOS)
+curl -L https://fly.io/install.sh | sh
+
+# Deploy to Fly.io
+flyctl deploy --remote-only
+
+# Check app status
+flyctl status
+
+# View logs
+flyctl logs
+
+# Open deployed app
+flyctl open
 ```
 
 ### Development Workflow
@@ -215,11 +261,19 @@ npm run preview          # Preview production build
 - **HTTP Client**: Custom API client with EventSource streaming
 - **State Management**: React hooks with error boundaries
 
+### Deployment & Infrastructure
+- **Platform**: Fly.io with global deployment
+- **Containerization**: Multi-stage Docker builds
+- **Scaling**: Auto-scaling machines (stop on idle, start on demand)
+- **SSL/TLS**: Automatic HTTPS with force redirect
+- **Environment**: Production secrets management
+
 ### Development Tools
 - **TypeScript**: Strict mode with comprehensive type checking
 - **Process Management**: tsx for TypeScript execution, concurrently for multi-server dev
 - **Hot Reload**: Vite frontend HMR, tsx watch for backend
 - **Process Cleanup**: Custom dev-clean scripts for port conflict resolution
+- **Deployment**: Fly.io CLI with remote builds
 
 ## Use Cases
 
