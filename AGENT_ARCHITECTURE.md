@@ -5,10 +5,10 @@
 ## Quick Reference
 
 - **Current Agents**: 1 (Triage Agent)
-- **Active Tools**: 0 (tool loading system ready)
+- **Active Tools**: 1 (Penguin Bank MCP Server)
 - **Interaction Methods**: 1 (Multi-Agent System with Streaming Support)
 - **Architecture Pattern**: Multi-Agent Registry with Dynamic Instructions
-- **Last Updated**: 2025-06-29 (Legacy system removed)
+- **Last Updated**: 2025-06-30 (MCP Tools Integration)
 
 ## Runtime Agent Flow (Current State)
 
@@ -108,7 +108,7 @@ Before updating any Mermaid diagram, complete these verification steps:
 - **File**: `server/src/agents/triage-agent.ts`
 - **Model**: `gpt-4o-mini` (configurable via `TRIAGE_AGENT_MODEL` or `AGENT_MODEL`)
 - **Purpose**: Customer service inquiries and support with context-aware responses
-- **Tools**: Dynamically loaded from tool system (currently empty array)
+- **Tools**: Dynamically loaded from tool system (1 MCP tool: Penguin Bank)
 - **Context**: Full AgentContext injection with user/session data
 - **Instructions**: Dynamic function `buildTriageInstructions(runContext, agent)`
 - **Status**: ✅ Active (Refactored to SDK patterns)
@@ -603,8 +603,14 @@ For more information on tool types and patterns, see the [OpenAI Agents SDK Tool
 
 ### Current Tool System
 - **Registry**: `ToolRegistry` class in `server/src/lib/loadTools.ts`
-- **Status**: Infrastructure complete, no tools loaded
+- **Status**: Infrastructure complete, 1 MCP tool active
 - **Categories**: `database`, `crm`, `api`, `mcp`, `utility`
+
+### Implemented Tools
+
+| Tool Name | Category | Purpose | Agent(s) | Status |
+|-----------|----------|---------|----------|--------|
+| Penguin Bank MCP | `mcp` | Banking information, balances, transactions, bill pay | Triage | ✅ Implemented |
 
 ### Planned Tools
 > Update this section as tools are implemented
@@ -620,24 +626,24 @@ For more information on tool types and patterns, see the [OpenAI Agents SDK Tool
 ```mermaid
 graph TB
     LOAD[loadTools Function] --> REG[Tool Registry]
-    REG --> |Phase 1| EMPTY[Empty Array]
+    REG --> |Phase 1| MCP[MCP Tools - Active]
     REG --> |Phase 2| INTERNAL[Internal Tools]
-    REG --> |Phase 3| MCP[MCP Tools]
-    REG --> |Phase 4| DB[Database Tools]
-    REG --> |Phase 5| CRM[CRM Tools]
+    REG --> |Phase 3| DB[Database Tools]
+    REG --> |Phase 4| CRM[CRM Tools]
     
-    INTERNAL --> CONVERT[convertToolsForAgent]
-    MCP --> CONVERT
+    MCP --> |Penguin Bank| CONVERT[convertToolsForAgent]
+    INTERNAL --> CONVERT
     DB --> CONVERT
     CRM --> CONVERT
-    CONVERT --> AGENT[Agent Instance]
+    CONVERT --> |hostedMcpTool| AGENT[Agent Instance]
     
-    classDef phase fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef ready fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef active fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
     classDef pending fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef tool fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
     
-    class EMPTY ready
-    class INTERNAL,MCP,DB,CRM pending
+    class MCP active
+    class INTERNAL,DB,CRM pending
+    class CONVERT,AGENT tool
 ```
 
 ## SDK Integration Status (Post-Refactor)

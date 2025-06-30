@@ -5,9 +5,9 @@
  * that follows OpenAI Agents SDK best practices.
  */
 
-import { run } from '@openai/agents';
+import { run, AgentInputItem, hostedMcpTool } from '@openai/agents';
 import { getAgentRegistry } from '../agents/index.js';
-import { loadTools, convertToolsForAgent } from './loadTools.js';
+import { loadTools, convertToolsForAgent, loadMCPConfigurations } from './loadTools.js';
 import type { AgentContext, AgentType, AgentResult } from '../agents/types.js';
 
 /**
@@ -18,6 +18,7 @@ export class MultiAgentManager {
   private isInitialized = false;
   private isShuttingDown = false;
   private initializationPromise: Promise<void> | null = null;
+  private conversationThreads = new Map<string, AgentInputItem[]>();
 
   private constructor() {
     this.setupShutdownHandlers();
@@ -55,14 +56,22 @@ export class MultiAgentManager {
     try {
       console.log('[MultiAgentManager] Initializing multi-agent system...');
       
-      // Load tools first (shared across agents)
-      const toolDefinitions = await loadTools();
-      const tools = convertToolsForAgent(toolDefinitions);
+      // Load local tools and MCP configurations separately
+      const [toolDefinitions, mcpConfigurations] = await Promise.all([
+        loadTools(),
+        loadMCPConfigurations()
+      ]);
       
-      console.log(`[MultiAgentManager] Loaded ${tools.length} tools for agents`);
+      // Convert local tools to SDK format
+      const localTools = convertToolsForAgent(toolDefinitions);
+      
+      // Create MCP tools directly using hostedMcpTool
+      const mcpTools = mcpConfigurations.map(config => hostedMcpTool(config));
+      
+      console.log(`[MultiAgentManager] Loaded ${localTools.length} local tools and ${mcpTools.length} MCP tools`);
       
       // Import and register all agents
-      await this.loadAgents(tools);
+      await this.loadAgents(localTools, mcpTools);
       
       const registry = getAgentRegistry();
       registry.markInitialized();
@@ -84,14 +93,14 @@ export class MultiAgentManager {
   /**
    * Load and register agent definitions
    */
-  private async loadAgents(tools: any[]): Promise<void> {
+  private async loadAgents(localTools: any[], mcpTools: any[]): Promise<void> {
     // Dynamic imports to avoid circular dependencies
     const { createTriageAgent } = await import('../agents/triage-agent.js');
     
     const registry = getAgentRegistry();
     
-    // Create triage agent with available tools
-    const triageAgent = createTriageAgent(tools);
+    // Create triage agent with both local and MCP tools
+    const triageAgent = createTriageAgent(localTools, mcpTools);
     
     // Register triage agent (converted from original customer service agent)
     registry.register({
@@ -101,7 +110,7 @@ export class MultiAgentManager {
       canReceiveHandoffs: false, // Main entry point
       metadata: {
         model: (triageAgent.model || 'gpt-4o-mini').toString(),
-        toolCount: tools.length,
+        toolCount: localTools.length + mcpTools.length,
         hasStructuredOutput: true,
         supportedCapabilities: ['customer_service', 'inquiry_analysis', 'support'],
       },
@@ -139,15 +148,31 @@ export class MultiAgentManager {
         console.log(`[MultiAgentManager] Running ${agentType} agent with message: "${message.substring(0, 100)}..."`);
       }
 
-      // Use SDK's run function with context injection
+      // Get existing conversation thread for this session
+      const thread = this.getOrCreateThread(context.sessionId);
+      
+      // Create new user message
+      const newMessage: AgentInputItem = { role: 'user', content: message };
+      
+      // Run agent with conversation history + new message
+      const conversationInput = thread.concat(newMessage);
+      
+      if (context.isDebug) {
+        console.log(`[MultiAgentManager] Session ${context.sessionId} has ${thread.length} previous messages`);
+      }
+
+      // Use SDK's run function with conversation history and context injection
       const result = options.stream === true 
-        ? await run(agent, message, { context, stream: true })
-        : await run(agent, message, { context, stream: false });
+        ? await run(agent, conversationInput, { context, stream: true })
+        : await run(agent, conversationInput, { context, stream: false });
+
+      // Update conversation thread with result history
+      this.conversationThreads.set(context.sessionId, result.history);
 
       const executionTime = Date.now() - startTime;
       
       if (context.isDebug) {
-        console.log(`[MultiAgentManager] ${agentType} agent completed in ${executionTime}ms`);
+        console.log(`[MultiAgentManager] ${agentType} agent completed in ${executionTime}ms, thread now has ${result.history.length} messages`);
       }
 
       return {
@@ -192,6 +217,43 @@ export class MultiAgentManager {
       source: params.source || 'api',
       metadata: params.metadata,
     };
+  }
+
+  /**
+   * Get or create conversation thread for a session
+   */
+  private getOrCreateThread(sessionId: string): AgentInputItem[] {
+    if (!this.conversationThreads.has(sessionId)) {
+      this.conversationThreads.set(sessionId, []);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MultiAgentManager] Created new conversation thread for session: ${sessionId}`);
+      }
+    }
+    return this.conversationThreads.get(sessionId)!;
+  }
+
+  /**
+   * Clear conversation thread for a specific session
+   */
+  clearThread(sessionId: string): void {
+    const deleted = this.conversationThreads.delete(sessionId);
+    if (deleted && process.env.NODE_ENV === 'development') {
+      console.log(`[MultiAgentManager] Cleared conversation thread for session: ${sessionId}`);
+    }
+  }
+
+  /**
+   * Get count of active conversation threads
+   */
+  getThreadCount(): number {
+    return this.conversationThreads.size;
+  }
+
+  /**
+   * Get conversation thread for a session (for debugging)
+   */
+  getThread(sessionId: string): AgentInputItem[] | undefined {
+    return this.conversationThreads.get(sessionId);
   }
 
   /**

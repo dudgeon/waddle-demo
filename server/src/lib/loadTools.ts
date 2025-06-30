@@ -9,12 +9,30 @@
  * - CRM integration tools
  */
 
-export interface ToolDefinition {
+// Note: hostedMcpTool import moved to agent creation files
+
+/**
+ * Base tool definition with common properties
+ */
+interface BaseToolDefinition {
   /** Tool name identifier */
   name: string;
   
   /** Tool description for the agent */
   description: string;
+  
+  /** Whether this tool requires approval before execution */
+  requiresApproval?: boolean;
+  
+  /** Tool category for organization */
+  category?: 'database' | 'crm' | 'api' | 'mcp' | 'utility';
+}
+
+/**
+ * Function tool definition for locally implemented tools
+ */
+interface FunctionToolDefinition extends BaseToolDefinition {
+  type: 'function';
   
   /** Tool parameters schema (JSON Schema) */
   parameters?: {
@@ -25,13 +43,13 @@ export interface ToolDefinition {
   
   /** Tool implementation function */
   implementation: (args: Record<string, any>) => Promise<any>;
-  
-  /** Whether this tool requires approval before execution */
-  requiresApproval?: boolean;
-  
-  /** Tool category for organization */
-  category?: 'database' | 'crm' | 'api' | 'mcp' | 'utility';
 }
+
+/**
+ * Tool definition for local function tools only
+ * Note: MCP tools are now handled directly via hostedMcpTool() and don't use this type
+ */
+export type ToolDefinition = FunctionToolDefinition;
 
 /**
  * Tool registry for managing available tools
@@ -140,14 +158,13 @@ export async function loadTools(): Promise<ToolDefinition[]> {
   }
 
   try {
-    // Phase 1: Start with empty tools array
-    // Future phases will add:
-    // - await loadInternalTools()
-    // - await loadMCPTools()
-    // - await loadDatabaseTools()
-    // - await loadCRMTools()
-
-    const tools: ToolDefinition[] = [];
+    // Load local tool types only (MCP tools handled separately)
+    const tools: ToolDefinition[] = [
+      // Future: ...await loadInternalTools(),
+      // Future: ...await loadDatabaseTools(),
+      // Future: ...await loadCRMTools(),
+      // Note: MCP tools are now handled directly via hostedMcpTool() in agent creation
+    ];
 
     // Register any loaded tools
     tools.forEach(tool => toolRegistry.register(tool));
@@ -158,6 +175,12 @@ export async function loadTools(): Promise<ToolDefinition[]> {
       console.log(`[loadTools] Loaded ${tools.length} tools`);
       if (tools.length > 0) {
         console.log(`[loadTools] Available tools: ${tools.map(t => t.name).join(', ')}`);
+        const byCategory = tools.reduce((acc, tool) => {
+          const cat = tool.category || 'uncategorized';
+          acc[cat] = (acc[cat] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        console.log('[loadTools] Tools by category:', byCategory);
       }
     }
 
@@ -184,39 +207,52 @@ export function getToolRegistry(): ToolRegistry {
 }
 
 /**
- * Convert tools to OpenAI Agents SDK format
+ * Convert local function tools to OpenAI Agents SDK format
+ * Note: MCP tools are now handled directly via hostedMcpTool() and bypass this function
  */
 export function convertToolsForAgent(tools: ToolDefinition[]): any[] {
-  return tools.map(tool => ({
-    type: 'function',
-    function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters || {
-        type: 'object',
-        properties: {},
-        required: []
-      }
+  return tools.map(tool => {
+    // Handle function tools (including legacy tools without explicit type)
+    if (tool.type === 'function' || !('type' in tool)) {
+      const functionTool = tool as FunctionToolDefinition;
+      return {
+        type: 'function',
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: functionTool.parameters || {
+            type: 'object',
+            properties: {},
+            required: []
+          }
+        }
+      };
     }
-  }));
+    
+    throw new Error(`Unknown tool type: ${(tool as any).type}. MCP tools should be handled separately.`);
+  });
 }
 
 /**
  * Execute a tool by name with given arguments
+ * Only works for local function tools - MCP tools are executed by agents directly
  */
 export async function executeTool(toolName: string, args: Record<string, any>): Promise<any> {
   const tool = toolRegistry.get(toolName);
   
   if (!tool) {
-    throw new Error(`Tool '${toolName}' not found`);
+    throw new Error(`Tool '${toolName}' not found in local tool registry. MCP tools are executed directly by agents.`);
   }
 
+  // All tools in registry are now function tools
+  const functionTool = tool as FunctionToolDefinition;
+  
   try {
     if (process.env.NODE_ENV === 'development') {
       console.log(`[executeTool] Executing ${toolName} with args:`, args);
     }
 
-    const result = await tool.implementation(args);
+    const result = await functionTool.implementation(args);
     
     if (process.env.NODE_ENV === 'development') {
       console.log(`[executeTool] ${toolName} completed successfully`);
@@ -245,10 +281,33 @@ export function getApprovalRequiredTools(): ToolDefinition[] {
 //   return [];
 // }
 
-// async function loadMCPTools(): Promise<ToolDefinition[]> {
-//   // Will discover and load MCP server tools
-//   return [];
-// }
+/**
+ * Load MCP (Model Context Protocol) server configurations
+ * Returns configurations for direct hostedMcpTool() usage, not wrapped in ToolDefinition
+ */
+export async function loadMCPConfigurations(): Promise<any[]> {
+  const mcpConfigs: any[] = [];
+  
+  // Penguin Bank MCP Server - No authentication required
+  try {
+    mcpConfigs.push({
+      serverLabel: 'penguin_bank',
+      serverUrl: 'https://mcp.penguinbank.cloud'
+      // No headers needed for this server
+    });
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[loadMCPConfigurations] Configured Penguin Bank MCP server');
+    }
+  } catch (error) {
+    console.error('[loadMCPConfigurations] Failed to configure Penguin Bank MCP:', error);
+  }
+  
+  // Future MCP servers can be added here
+  // Some might require authentication headers
+  
+  return mcpConfigs;
+}
 
 // async function loadDatabaseTools(): Promise<ToolDefinition[]> {
 //   // Will load database query tools
