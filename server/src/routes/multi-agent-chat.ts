@@ -214,10 +214,21 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
       });
       res.write(connectEvent);
 
-      // Run the agent with streaming enabled
-      const result = await manager.runAgent(targetAgent, message, context, { stream: true });
-
       let eventId = 1;
+
+      // Create SSE emitter function for manager  
+      const sseEmitter = (eventType: string, data: any) => {
+        if (isClientConnected && !res.destroyed) {
+          const sseMessage = formatSSEMessage(eventType, data, `event-${eventId++}`);
+          res.write(sseMessage);
+        }
+      };
+
+      // Run the agent with streaming enabled and SSE emitter
+      const result = await manager.runAgent(targetAgent, message, context, { 
+        stream: true, 
+        sseEmitter 
+      });
       let accumulatedText = ''; // Track the complete response text
 
       // Handle streaming events using async iteration
@@ -267,117 +278,107 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
           
           // Handle run item events (tool calls, messages, etc.)
           if (event.name === 'tool_approval_requested') {
-            // THIS IS THE PERFECT MOMENT - tool is requesting approval before execution
+            // CRITICAL: Handle MCP tool approval to prevent hanging
             console.log('[Tool Approval Requested]', { 
-              item: event.item, 
+              item: event.item?.type || event.item?.name || 'unknown',
               sessionId: context.sessionId,
               hasApprovalState: !!event.item?.approvalState,
               canApprove: typeof event.item?.approvalState?.approve === 'function'
             });
             
-            // Extract tool name from approval request - dig deeper into the structure
-            let toolName = event.item?.name || 
-                           event.item?.function?.name ||
-                           event.item?.tool?.name ||
-                           event.item?.rawItem?.name ||
-                           event.item?.rawItem?.function?.name ||
-                           event.item?.call?.function?.name ||
-                           event.item?.type || 
-                           'MCP Tool';
+            // Extract tool name for UI notification
+            const toolName = event.item?.name || event.item?.type || 'MCP Tool';
             
-            console.log('[Tool Name Extraction Debug]', {
-              'event.item?.name': event.item?.name,
-              'event.item?.function?.name': event.item?.function?.name,
-              'event.item?.tool?.name': event.item?.tool?.name,
-              'event.item?.rawItem?.name': event.item?.rawItem?.name,
-              'event.item?.rawItem?.function?.name': event.item?.rawItem?.function?.name,
-              'event.item?.call?.function?.name': event.item?.call?.function?.name,
-              'event.item?.type': event.item?.type,
-              'extracted_toolName': toolName,
-              'full_item': JSON.stringify(event.item, null, 2)
+            // Emit UI activation event BEFORE approval
+            const sseMessage = formatSSEMessage('tool_call_starting', {
+              name: toolName,
+              isMcpTool: true,
+              displayName: toolName.replace(/[-_]/g, ' '),
+              event_name: event.name,
+              sessionId: context.sessionId,
+              agentType: targetAgent,
+              timing: 'pre-approval'
+            }, `event-${eventId++}`);
+            
+            if (isClientConnected && !res.destroyed) {
+              res.write(sseMessage);
+            }
+            
+            // CRITICAL: Debug the approval structure and attempt multiple approval patterns
+            console.log('[MCP Tool Approval Debug]', {
+              toolName,
+              sessionId: context.sessionId,
+              'event.item keys': Object.keys(event.item || {}),
+              'approvalState exists': !!event.item?.approvalState,
+              'approvalState keys': event.item?.approvalState ? Object.keys(event.item.approvalState) : null,
+              'approve function': typeof event.item?.approvalState?.approve,
+              'event.item.approve': typeof event.item?.approve,
+              'event.approve': typeof event?.approve,
+              'full event structure': JSON.stringify(event, null, 2).substring(0, 1000)
             });
+
+            // Try multiple approval patterns based on OpenAI SDK structure
+            let approvalSuccess = false;
             
-            // Check if this is an MCP tool based on event structure
-            const isMcpTool = event.item?.type === 'tool_approval_item' ||
-                             event.item?.rawItem?.type === 'hosted_tool_call' ||
-                             event.item?.rawItem?.name === 'mcp_call';
-            
-            if (isMcpTool) {
-              const displayName = toolName === 'tool_approval_item' ? 'MCP Tool' : toolName.replace(/[-_]/g, ' ');
-              
-              // Send UI activation signal BEFORE approving
-              const sseMessage = formatSSEMessage('tool_call_starting', {
-                name: toolName,
-                isMcpTool: true,
-                displayName,
-                event_name: event.name,
-                sessionId: context.sessionId,
-                agentType: targetAgent,
-                timing: 'approval-requested'
-              }, `event-${eventId++}`);
-              
-              console.log('[Sending tool_call_starting event]', {
-                toolName,
-                displayName,
-                isMcpTool: true,
-                sessionId: context.sessionId
-              });
-              
-              if (isClientConnected && !res.destroyed) {
-                res.write(sseMessage);
-                // Small delay to ensure frontend receives the event before approval
-                await new Promise(resolve => setTimeout(resolve, 50));
+            // Pattern 1: Direct approval state
+            if (event.item?.approvalState?.approve && typeof event.item.approvalState.approve === 'function') {
+              try {
+                await event.item.approvalState.approve();
+                console.log('[MCP Tool Approved - Pattern 1]', { toolName, sessionId: context.sessionId });
+                approvalSuccess = true;
+              } catch (approvalError) {
+                console.error('[MCP Tool Approval Failed - Pattern 1]', { 
+                  toolName, 
+                  error: approvalError instanceof Error ? approvalError.message : approvalError,
+                  sessionId: context.sessionId 
+                });
               }
-              
-              // Handle approval in the stream since interruptions aren't reaching the manager
-              console.log('[MCP Tool Approval - Processing in Stream]', { 
+            }
+            
+            // Pattern 2: Direct item approval
+            if (!approvalSuccess && event.item?.approve && typeof event.item.approve === 'function') {
+              try {
+                await event.item.approve();
+                console.log('[MCP Tool Approved - Pattern 2]', { toolName, sessionId: context.sessionId });
+                approvalSuccess = true;
+              } catch (approvalError) {
+                console.error('[MCP Tool Approval Failed - Pattern 2]', { 
+                  toolName, 
+                  error: approvalError instanceof Error ? approvalError.message : approvalError,
+                  sessionId: context.sessionId 
+                });
+              }
+            }
+            
+            // Pattern 3: Event-level approval
+            if (!approvalSuccess && event.approve && typeof event.approve === 'function') {
+              try {
+                await event.approve();
+                console.log('[MCP Tool Approved - Pattern 3]', { toolName, sessionId: context.sessionId });
+                approvalSuccess = true;
+              } catch (approvalError) {
+                console.error('[MCP Tool Approval Failed - Pattern 3]', { 
+                  toolName, 
+                  error: approvalError instanceof Error ? approvalError.message : approvalError,
+                  sessionId: context.sessionId 
+                });
+              }
+            }
+            
+            if (!approvalSuccess) {
+              console.error('[MCP Tool Approval - All Patterns Failed]', { 
                 toolName, 
                 sessionId: context.sessionId,
-                hasApprovalState: !!event.item?.approvalState,
-                hasApproveMethod: typeof event.item?.approvalState?.approve === 'function'
-              });
-              
-              // DO NOT APPROVE HERE - let the SDK handle approval within agent context
-              // This prevents the "N/A" flow issue in OpenAI traces
-              console.log('[MCP Tool Approval Event - UI Notification Only]', { 
-                toolName, 
-                sessionId: context.sessionId,
-                note: 'Approval will be handled by SDK to maintain agent context'
+                note: 'No working approval method found - tool will hang'
               });
             }
           } else if (event.name === 'tool_call_created' || event.name === 'tool_call_started') {
-            // This should fire BEFORE tool execution
-            console.log('[Tool Call STARTING]', { name: event.name, item: event.item?.name });
-            
-            // Extract tool name for early activation
-            let toolName = event.item?.name || 
-                           event.item?.type || 
-                           event.item?.function?.name ||
-                           event.item?.tool?.name ||
-                           'unknown';
-            
-            // Check if this is an MCP tool based on the event structure, not hardcoded names
-            const isMcpTool = event.item?.rawItem?.type === 'hosted_tool_call' ||
-                             event.item?.rawItem?.name === 'mcp_call' ||
-                             event.item?.type === 'hosted_tool_call';
-            
-            if (isMcpTool) {
-              const displayName = toolName === 'tool_call_item' || toolName === 'unknown' ? 'Bank Tool' : toolName.replace(/[-_]/g, ' ');
-              
-              const sseMessage = formatSSEMessage('tool_call_starting', {
-                name: toolName,
-                isMcpTool,
-                displayName,
-                event_name: event.name,
-                sessionId: context.sessionId,
-                agentType: targetAgent,
-                timing: 'pre-execution'
-              }, `event-${eventId++}`);
-              
-              if (isClientConnected && !res.destroyed) {
-                res.write(sseMessage);
-              }
-            }
+            // Log for debugging - detailed tool events handled by multi-agent manager
+            console.log('[Tool Call STARTING]', { 
+              name: event.name, 
+              item: event.item?.name || event.item?.type || 'unknown',
+              note: 'MCP tool UI events handled by multi-agent manager'
+            });
           } else if (event.name === 'tool_called') {
             // Extract tool name from different event types
             let toolName = event.item?.name || 
@@ -410,6 +411,23 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
               sessionId: context.sessionId,
               agentType: targetAgent
             });
+            
+            // NEW: Send tool_call_starting event for MCP tools for UI activation
+            if (isMcpTool) {
+              const startingMessage = formatSSEMessage('tool_call_starting', {
+                name: toolName,
+                isMcpTool: true,
+                displayName,
+                event_name: 'tool_called_starting',
+                sessionId: context.sessionId,
+                agentType: targetAgent,
+                timing: 'execution'
+              }, `event-${eventId++}`);
+              
+              if (isClientConnected && !res.destroyed) {
+                res.write(startingMessage);
+              }
+            }
             
             const sseMessage = formatSSEMessage('tool_call', {
               name: toolName,
@@ -657,10 +675,21 @@ router.post('/chat', async (req: express.Request, res: express.Response) => {
         });
         res.write(connectEvent);
 
-        // Run the agent with streaming enabled
-        const result = await manager.runAgent(targetAgent, message, context, { stream: true });
-
         let eventId = 1;
+
+        // Create SSE emitter function for manager
+        const sseEmitter = (eventType: string, data: any) => {
+          if (isClientConnected && !res.destroyed) {
+            const sseMessage = formatSSEMessage(eventType, data, `event-${eventId++}`);
+            res.write(sseMessage);
+          }
+        };
+
+        // Run the agent with streaming enabled and SSE emitter
+        const result = await manager.runAgent(targetAgent, message, context, { 
+          stream: true, 
+          sseEmitter 
+        });
         let accumulatedText = ''; // Track the complete response text
 
         // Handle streaming events using async iteration
@@ -697,7 +726,54 @@ router.post('/chat', async (req: express.Request, res: express.Response) => {
             }
           } else if (event.type === 'run_item_stream_event') {
             // Handle run item events (tool calls, messages, etc.)
-            if (event.name === 'tool_called') {
+            if (event.name === 'tool_approval_requested') {
+              // CRITICAL: Handle MCP tool approval to prevent hanging (POST route)
+              console.log('[Tool Approval Requested - POST]', { 
+                item: event.item?.type || event.item?.name || 'unknown',
+                sessionId: context.sessionId,
+                hasApprovalState: !!event.item?.approvalState,
+                canApprove: typeof event.item?.approvalState?.approve === 'function'
+              });
+              
+              // Extract tool name for UI notification
+              const toolName = event.item?.name || event.item?.type || 'MCP Tool';
+              
+              // Emit UI activation event BEFORE approval
+              const sseMessage = formatSSEMessage('tool_call_starting', {
+                name: toolName,
+                isMcpTool: true,
+                displayName: toolName.replace(/[-_]/g, ' '),
+                event_name: event.name,
+                sessionId: context.sessionId,
+                agentType: targetAgent,
+                timing: 'pre-approval'
+              }, `event-${eventId++}`);
+              
+              if (isClientConnected && !res.destroyed) {
+                res.write(sseMessage);
+              }
+              
+              // CRITICAL: Auto-approve the tool to prevent hanging
+              if (event.item?.approvalState?.approve) {
+                try {
+                  await event.item.approvalState.approve();
+                  console.log('[MCP Tool Approved - POST]', { toolName, sessionId: context.sessionId });
+                } catch (approvalError) {
+                  console.error('[MCP Tool Approval Failed - POST]', { 
+                    toolName, 
+                    error: approvalError instanceof Error ? approvalError.message : approvalError,
+                    sessionId: context.sessionId 
+                  });
+                }
+              } else {
+                console.warn('[MCP Tool Approval Missing - POST]', { 
+                  toolName, 
+                  hasApprovalState: !!event.item?.approvalState,
+                  sessionId: context.sessionId,
+                  note: 'No approval method available - tool may hang'
+                });
+              }
+            } else if (event.name === 'tool_called') {
               const toolName = event.item?.name || event.item?.type || 'unknown';
               
               // Check if this was an MCP tool call

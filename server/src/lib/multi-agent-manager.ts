@@ -5,10 +5,10 @@
  * that follows OpenAI Agents SDK best practices.
  */
 
-import { run, AgentInputItem, hostedMcpTool } from '@openai/agents';
+import { run, AgentInputItem } from '@openai/agents';
 import { getAgentRegistry } from '../agents/index.js';
 import { loadTools, convertToolsForAgent, loadMCPConfigurations } from './loadTools.js';
-import { makeInstrumentedMcpTool, handleMcpToolApproval } from './mcp-tool-wrapper.js';
+import { makeInstrumentedMcpTool } from './mcp-tool-wrapper.js';
 import type { AgentContext, AgentType, AgentResult } from '../agents/types.js';
 
 /**
@@ -133,7 +133,7 @@ export class MultiAgentManager {
     agentType: AgentType,
     message: string,
     context: AgentContext,
-    options: { stream?: boolean } = {}
+    options: { stream?: boolean; sseEmitter?: (event: string, data: any) => void } = {}
   ): Promise<AgentResult> {
     if (this.isShuttingDown) {
       throw new Error('Multi-agent system is shutting down');
@@ -186,7 +186,7 @@ export class MultiAgentManager {
         hasResult: !!result,
         hasInterruptions: !!(result.interruptions && result.interruptions.length > 0),
         interruptionCount: result.interruptions?.length || 0,
-        hasRawResponse: !!result.rawResponse,
+        hasRawResponses: !!result.rawResponses,
         hasFinalOutput: !!result.finalOutput,
         streaming: options.stream === true,
         sessionId: context.sessionId
@@ -201,36 +201,12 @@ export class MultiAgentManager {
         resultKeys: Object.keys(result || {})
       });
       
+      // Note: Interruption handling moved to streaming routes for better event correlation
+      // The interruptions are processed during the streaming event loop where we have
+      // better access to the event structure and can emit UI notifications in real-time
       if (result.interruptions && result.interruptions.length > 0) {
-        console.log('[MultiAgentManager] Processing interruptions:', result.interruptions);
-        
-        for (const interruption of result.interruptions) {
-          console.log('[MultiAgentManager] Processing interruption:', interruption);
-          
-          if (interruption.type === 'tool_approval') {
-            const toolName = interruption.item?.name || interruption.item?.type || 'unknown';
-            const toolArgs = interruption.item?.arguments || {};
-            
-            console.log('[MultiAgentManager] Tool approval required:', { toolName, toolArgs });
-            
-            // Extract and store tool information for visualization
-            handleMcpToolApproval(context.sessionId, toolName, toolArgs);
-            
-            // **THIS IS THE PERFECT MOMENT TO TRIGGER MCP UI ACTIVATION**
-            // The tool is about to be approved and executed - send notification
-            console.log('[MCP APPROVAL TRIGGERED]', { 
-              toolName, 
-              sessionId: context.sessionId,
-              timing: 'pre-execution',
-              message: 'This is when the MCP UI should activate!' 
-            });
-            
-            // Auto-approve the tool execution
-            await interruption.state.approve();
-            
-            console.log('[MultiAgentManager] Tool approved:', toolName);
-          }
-        }
+        console.log('[MultiAgentManager] Interruptions detected:', result.interruptions.length);
+        console.log('[MultiAgentManager] Note: Interruption handling moved to streaming routes for better UI integration');
       }
 
       // Update conversation thread with result history

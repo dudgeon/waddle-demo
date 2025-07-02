@@ -10,11 +10,13 @@ export interface McpConfig {
 }
 
 export function makeInstrumentedMcpTool(config: McpConfig) {
-  // Create the MCP tool WITH approval requirement for visibility
-  // This will trigger interruptions that we can use for UI activation
+  // Create the MCP tool WITHOUT approval requirement for flow continuity
+  // This prevents breaking the conversation flow which was causing the tool calls
+  // to appear as separate flows rather than part of the agent interaction
+  // UI activation will be handled via streaming events instead of approval interruptions
   return hostedMcpTool({
     ...config,
-    requireApproval: 'always'
+    requireApproval: 'never'
   });
 }
 
