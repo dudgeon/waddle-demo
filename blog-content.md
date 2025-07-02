@@ -32,7 +32,7 @@ Customers can send chat messages to the system and receive responses.
 
 #### Message Ingestion {#message-ingestion}
 
-#### Planning Agent {#planning-agent}
+#### Triage Agent {#triage-agent}
 
 #### Internally Defined Tools {#internally-defined-tools}
 
