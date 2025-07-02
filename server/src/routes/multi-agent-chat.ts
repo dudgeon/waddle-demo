@@ -7,6 +7,7 @@
 
 import express from 'express';
 import { MultiAgentManager } from '../lib/multi-agent-manager.js';
+import { getRecentMcpToolCall } from '../lib/mcp-tool-wrapper.js';
 import type { AgentType } from '../agents/types.js';
 import type { ChatMessage } from '../types/agent.js';
 
@@ -228,10 +229,18 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
         }
 
         // Process different types of stream events
+        console.log('[Stream Event Type]', { 
+          type: event.type, 
+          eventName: event.name || 'no-name',
+          sessionId: context.sessionId 
+        });
+        
         if (event.type === 'raw_model_stream_event') {
           const rawEvent = event.data;
           if (rawEvent.type === 'output_text_delta') {
             accumulatedText += rawEvent.delta; // Accumulate the text
+            
+            
             const sseMessage = formatSSEMessage('text_delta', {
               delta: rawEvent.delta,
               sessionId: context.sessionId,
@@ -253,10 +262,176 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
             }
           }
         } else if (event.type === 'run_item_stream_event') {
+          // Log all run item events to understand the event sequence
+          console.log('[Run Item Event]', { name: event.name, type: event.item?.type, timing: 'received' });
+          
           // Handle run item events (tool calls, messages, etc.)
-          if (event.name === 'tool_called') {
+          if (event.name === 'tool_approval_requested') {
+            // THIS IS THE PERFECT MOMENT - tool is requesting approval before execution
+            console.log('[Tool Approval Requested]', { 
+              item: event.item, 
+              sessionId: context.sessionId,
+              hasApprovalState: !!event.item?.approvalState,
+              canApprove: typeof event.item?.approvalState?.approve === 'function'
+            });
+            
+            // Extract tool name from approval request - dig deeper into the structure
+            let toolName = event.item?.name || 
+                           event.item?.function?.name ||
+                           event.item?.tool?.name ||
+                           event.item?.rawItem?.name ||
+                           event.item?.rawItem?.function?.name ||
+                           event.item?.call?.function?.name ||
+                           event.item?.type || 
+                           'MCP Tool';
+            
+            console.log('[Tool Name Extraction Debug]', {
+              'event.item?.name': event.item?.name,
+              'event.item?.function?.name': event.item?.function?.name,
+              'event.item?.tool?.name': event.item?.tool?.name,
+              'event.item?.rawItem?.name': event.item?.rawItem?.name,
+              'event.item?.rawItem?.function?.name': event.item?.rawItem?.function?.name,
+              'event.item?.call?.function?.name': event.item?.call?.function?.name,
+              'event.item?.type': event.item?.type,
+              'extracted_toolName': toolName,
+              'full_item': JSON.stringify(event.item, null, 2)
+            });
+            
+            // Check if this is an MCP tool based on event structure
+            const isMcpTool = event.item?.type === 'tool_approval_item' ||
+                             event.item?.rawItem?.type === 'hosted_tool_call' ||
+                             event.item?.rawItem?.name === 'mcp_call';
+            
+            if (isMcpTool) {
+              const displayName = toolName === 'tool_approval_item' ? 'MCP Tool' : toolName.replace(/[-_]/g, ' ');
+              
+              // Send UI activation signal BEFORE approving
+              const sseMessage = formatSSEMessage('tool_call_starting', {
+                name: toolName,
+                isMcpTool: true,
+                displayName,
+                event_name: event.name,
+                sessionId: context.sessionId,
+                agentType: targetAgent,
+                timing: 'approval-requested'
+              }, `event-${eventId++}`);
+              
+              console.log('[Sending tool_call_starting event]', {
+                toolName,
+                displayName,
+                isMcpTool: true,
+                sessionId: context.sessionId
+              });
+              
+              if (isClientConnected && !res.destroyed) {
+                res.write(sseMessage);
+                // Small delay to ensure frontend receives the event before approval
+                await new Promise(resolve => setTimeout(resolve, 50));
+              }
+              
+              // Handle approval in the stream since interruptions aren't reaching the manager
+              console.log('[MCP Tool Approval - Processing in Stream]', { 
+                toolName, 
+                sessionId: context.sessionId,
+                hasApprovalState: !!event.item?.approvalState,
+                hasApproveMethod: typeof event.item?.approvalState?.approve === 'function'
+              });
+              
+              // Handle approval directly in the stream since interruptions don't reach the manager during streaming
+              console.log('[MCP Tool Approval Event - Processing in Stream]', { 
+                toolName, 
+                sessionId: context.sessionId,
+                hasApprovalState: !!event.item?.approvalState,
+                hasApproveMethod: typeof event.item?.approvalState?.approve === 'function'
+              });
+              
+              // Auto-approve the tool execution
+              if (event.item?.approvalState?.approve) {
+                try {
+                  await event.item.approvalState.approve();
+                  console.log('[MCP Tool Auto-Approved in Stream]', { toolName, sessionId: context.sessionId });
+                } catch (approvalError) {
+                  console.error('[MCP Tool Approval Failed]', { toolName, error: approvalError, sessionId: context.sessionId });
+                }
+              } else {
+                console.warn('[MCP Tool Approval - No approval state found]', { 
+                  toolName, 
+                  sessionId: context.sessionId,
+                  eventItemKeys: Object.keys(event.item || {}),
+                  fullEventItem: JSON.stringify(event.item, null, 2)
+                });
+              }
+            }
+          } else if (event.name === 'tool_call_created' || event.name === 'tool_call_started') {
+            // This should fire BEFORE tool execution
+            console.log('[Tool Call STARTING]', { name: event.name, item: event.item?.name });
+            
+            // Extract tool name for early activation
+            let toolName = event.item?.name || 
+                           event.item?.type || 
+                           event.item?.function?.name ||
+                           event.item?.tool?.name ||
+                           'unknown';
+            
+            // Check if this is an MCP tool based on the event structure, not hardcoded names
+            const isMcpTool = event.item?.rawItem?.type === 'hosted_tool_call' ||
+                             event.item?.rawItem?.name === 'mcp_call' ||
+                             event.item?.type === 'hosted_tool_call';
+            
+            if (isMcpTool) {
+              const displayName = toolName === 'tool_call_item' || toolName === 'unknown' ? 'Bank Tool' : toolName.replace(/[-_]/g, ' ');
+              
+              const sseMessage = formatSSEMessage('tool_call_starting', {
+                name: toolName,
+                isMcpTool,
+                displayName,
+                event_name: event.name,
+                sessionId: context.sessionId,
+                agentType: targetAgent,
+                timing: 'pre-execution'
+              }, `event-${eventId++}`);
+              
+              if (isClientConnected && !res.destroyed) {
+                res.write(sseMessage);
+              }
+            }
+          } else if (event.name === 'tool_called') {
+            // Extract tool name from different event types
+            let toolName = event.item?.name || 
+                           event.item?.type || 
+                           event.item?.function?.name ||
+                           event.item?.tool?.name ||
+                           event.item?.tool_call?.function?.name ||
+                           'unknown';
+            
+            // Check if this is an actual MCP tool call and extract the real tool name
+            if (event.item?.rawItem?.providerData?.name && 
+                event.item?.rawItem?.type === 'hosted_tool_call' &&
+                event.item?.rawItem?.name === 'mcp_call') {
+              toolName = event.item.rawItem.providerData.name;
+            }
+            
+            // Detect MCP tools based on the event structure from OpenAI SDK
+            const isMcpTool = event.item?.rawItem?.type === 'hosted_tool_call' ||
+                             event.item?.rawItem?.name === 'mcp_call' ||
+                             event.item?.type === 'hosted_tool_call';
+            
+            const displayName = isMcpTool ? 
+              (toolName === 'tool_call_item' || toolName === 'unknown' ? 'Bank Tool' : toolName.replace(/[-_]/g, ' ')) : 
+              toolName;
+            
+            console.log('[Tool Call Event]', {
+              toolName,
+              isMcpTool,
+              displayName,
+              sessionId: context.sessionId,
+              agentType: targetAgent
+            });
+            
             const sseMessage = formatSSEMessage('tool_call', {
-              name: event.item.type,
+              name: toolName,
+              isMcpTool,
+              displayName,
               event_name: event.name,
               sessionId: context.sessionId,
               agentType: targetAgent
@@ -288,11 +463,41 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
           if (isClientConnected && !res.destroyed) {
             res.write(sseMessage);
           }
+        } else if (event.type === 'interruption_stream_event') {
+          // Handle interruption events (like tool approvals)
+          console.log('[Interruption Event]', event);
+          
+          if (event.interruption?.type === 'tool_approval') {
+            const toolName = event.interruption.item?.name || event.interruption.item?.type || 'unknown';
+            const toolArgs = event.interruption.item?.arguments || {};
+            
+            console.log('[MCP Tool Approval in Stream]', { toolName, toolArgs, sessionId: context.sessionId });
+            
+            // Import and call the approval handler
+            const { handleMcpToolApproval } = await import('../lib/mcp-tool-wrapper.js');
+            handleMcpToolApproval(context.sessionId, toolName, toolArgs);
+            
+            // Auto-approve the tool
+            if (event.interruption.state?.approve) {
+              await event.interruption.state.approve();
+              console.log('[MCP Tool Auto-Approved]', toolName);
+            }
+          }
         }
       }
 
       // Send final result if client is still connected
       if (isClientConnected && !res.destroyed) {
+        console.log('[Final Result Debug]', {
+          accumulatedText: accumulatedText?.substring(0, 100) + '...',
+          accumulatedTextLength: accumulatedText?.length,
+          resultFinalOutput: result.finalOutput?.substring(0, 100) + '...',
+          resultFinalOutputLength: result.finalOutput?.length,
+          hasAccumulatedText: !!accumulatedText,
+          hasResultFinalOutput: !!result.finalOutput,
+          willSend: accumulatedText || result.finalOutput || 'No response generated'
+        });
+        
         const finalMessage = formatSSEMessage('final_result', {
           final_output: accumulatedText || result.finalOutput || 'No response generated',
           agent_type: result.agentType,
@@ -476,6 +681,57 @@ router.post('/chat', async (req: express.Request, res: express.Response) => {
               accumulatedText += rawEvent.delta; // Accumulate the text
               const sseMessage = formatSSEMessage('text_delta', {
                 delta: rawEvent.delta,
+                sessionId: context.sessionId,
+                agentType: targetAgent
+              }, `event-${eventId++}`);
+              
+              if (isClientConnected && !res.destroyed) {
+                res.write(sseMessage);
+              }
+            } else if (rawEvent.type === 'response_done') {
+              const sseMessage = formatSSEMessage('response_completed', {
+                status: 'completed',
+                sessionId: context.sessionId,
+                agentType: targetAgent
+              }, `event-${eventId++}`);
+              
+              if (isClientConnected && !res.destroyed) {
+                res.write(sseMessage);
+              }
+            }
+          } else if (event.type === 'run_item_stream_event') {
+            // Handle run item events (tool calls, messages, etc.)
+            if (event.name === 'tool_called') {
+              const toolName = event.item?.name || event.item?.type || 'unknown';
+              
+              // Check if this was an MCP tool call
+              const mcpToolName = getRecentMcpToolCall(context.sessionId);
+              const isMcpTool = mcpToolName !== null;
+              
+              console.log('[Tool Call Event]', {
+                toolName,
+                isMcpTool,
+                mcpToolName: mcpToolName || undefined,
+                sessionId: context.sessionId,
+                agentType: targetAgent
+              });
+              
+              const sseMessage = formatSSEMessage('tool_call', {
+                name: mcpToolName || toolName,
+                isMcpTool,
+                displayName: mcpToolName ? mcpToolName.replace(/[-_]/g, ' ') : toolName,
+                event_name: event.name,
+                sessionId: context.sessionId,
+                agentType: targetAgent
+              }, `event-${eventId++}`);
+              
+              if (isClientConnected && !res.destroyed) {
+                res.write(sseMessage);
+              }
+            } else if (event.name === 'message_output_created') {
+              const sseMessage = formatSSEMessage('message_created', {
+                event_name: event.name,
+                item_type: event.item.type,
                 sessionId: context.sessionId,
                 agentType: targetAgent
               }, `event-${eventId++}`);
