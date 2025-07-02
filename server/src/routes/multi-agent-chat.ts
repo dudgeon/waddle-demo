@@ -337,30 +337,13 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
                 hasApproveMethod: typeof event.item?.approvalState?.approve === 'function'
               });
               
-              // Handle approval directly in the stream since interruptions don't reach the manager during streaming
-              console.log('[MCP Tool Approval Event - Processing in Stream]', { 
+              // DO NOT APPROVE HERE - let the SDK handle approval within agent context
+              // This prevents the "N/A" flow issue in OpenAI traces
+              console.log('[MCP Tool Approval Event - UI Notification Only]', { 
                 toolName, 
                 sessionId: context.sessionId,
-                hasApprovalState: !!event.item?.approvalState,
-                hasApproveMethod: typeof event.item?.approvalState?.approve === 'function'
+                note: 'Approval will be handled by SDK to maintain agent context'
               });
-              
-              // Auto-approve the tool execution
-              if (event.item?.approvalState?.approve) {
-                try {
-                  await event.item.approvalState.approve();
-                  console.log('[MCP Tool Auto-Approved in Stream]', { toolName, sessionId: context.sessionId });
-                } catch (approvalError) {
-                  console.error('[MCP Tool Approval Failed]', { toolName, error: approvalError, sessionId: context.sessionId });
-                }
-              } else {
-                console.warn('[MCP Tool Approval - No approval state found]', { 
-                  toolName, 
-                  sessionId: context.sessionId,
-                  eventItemKeys: Object.keys(event.item || {}),
-                  fullEventItem: JSON.stringify(event.item, null, 2)
-                });
-              }
             }
           } else if (event.name === 'tool_call_created' || event.name === 'tool_call_started') {
             // This should fire BEFORE tool execution
@@ -464,24 +447,37 @@ router.get('/chat', async (req: express.Request, res: express.Response) => {
             res.write(sseMessage);
           }
         } else if (event.type === 'interruption_stream_event') {
-          // Handle interruption events (like tool approvals)
-          console.log('[Interruption Event]', event);
+          // Log interruption events for debugging
+          console.log('[Interruption Event]', { 
+            type: event.interruption?.type,
+            sessionId: context.sessionId,
+            note: 'Interruptions should be handled by SDK/agent context, not here'
+          });
           
           if (event.interruption?.type === 'tool_approval') {
             const toolName = event.interruption.item?.name || event.interruption.item?.type || 'unknown';
-            const toolArgs = event.interruption.item?.arguments || {};
             
-            console.log('[MCP Tool Approval in Stream]', { toolName, toolArgs, sessionId: context.sessionId });
-            
-            // Import and call the approval handler
+            // Extract tool info for UI updates only
             const { handleMcpToolApproval } = await import('../lib/mcp-tool-wrapper.js');
-            handleMcpToolApproval(context.sessionId, toolName, toolArgs);
+            handleMcpToolApproval(context.sessionId, toolName, event.interruption.item?.arguments || {});
             
-            // Auto-approve the tool
-            if (event.interruption.state?.approve) {
-              await event.interruption.state.approve();
-              console.log('[MCP Tool Auto-Approved]', toolName);
+            // Send UI notification
+            const sseMessage = formatSSEMessage('tool_call_starting', {
+              name: toolName,
+              isMcpTool: true,
+              displayName: toolName.replace(/[-_]/g, ' '),
+              event_name: 'interruption_stream_event',
+              sessionId: context.sessionId,
+              agentType: targetAgent,
+              timing: 'interruption-received'
+            }, `event-${eventId++}`);
+            
+            if (isClientConnected && !res.destroyed) {
+              res.write(sseMessage);
             }
+            
+            // DO NOT APPROVE HERE - let SDK handle it
+            console.log('[MCP Tool Interruption - UI Notified, No Approval]', { toolName, sessionId: context.sessionId });
           }
         }
       }

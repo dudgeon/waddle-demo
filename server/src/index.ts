@@ -30,6 +30,7 @@ app.use(cors({
 
 // Health check endpoint
 app.get('/health', (_req, res) => {
+  console.log('[Health] Health check requested');
   res.json({ 
     status: 'healthy', 
     timestamp: new Date().toISOString(),
@@ -37,10 +38,30 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// API routes - Multi-agent system
-import multiAgentChatRoutes from './routes/multi-agent-chat.js';
-app.use('/api', multiAgentChatRoutes);
+// Simple test endpoint
+app.get('/test', (_req, res) => {
+  console.log('[Test] Test endpoint requested');
+  res.json({ message: 'Server is responding' });
+});
 
+// Check critical environment variables
+console.log('[Server] Checking environment variables...');
+const requiredEnvVars = ['OPENAI_API_KEY'];
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  console.error('❌ Missing required environment variables:', missingVars);
+  console.error('💡 Check your .env file');
+  process.exit(1);
+}
+console.log('[Server] Environment variables OK');
+
+// API routes - Multi-agent system
+console.log('[Server] Loading routes...');
+import multiAgentChatRoutes from './routes/multi-agent-chat.js';
+console.log('[Server] Routes imported successfully');
+app.use('/api', multiAgentChatRoutes);
+console.log('[Server] Routes registered successfully');
 
 // Serve static files from built frontend (production only)
 if (process.env.NODE_ENV === 'production') {
@@ -66,14 +87,54 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   });
 });
 
-// Enhanced server startup with port conflict handling
+// Global error handlers for debugging
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('❌ This may be causing silent server crashes');
+  process.exit(1);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  console.error('❌ Server will exit');
+  process.exit(1);
+});
+
+process.on('exit', (code) => {
+  console.log(`[Process] Process exiting with code: ${code}`);
+});
+
+process.on('SIGTERM', () => {
+  console.log('[Process] Received SIGTERM');
+});
+
+process.on('SIGINT', () => {
+  console.log('[Process] Received SIGINT');
+});
+
+// Enhanced server startup with error handling
 const startServer = async () => {
   try {
-    const server = app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`Health check: http://localhost:${PORT}/health`);
+    console.log('[Server] About to call app.listen()...');
+    
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log('🎉 [Server] Listen callback reached - server is actually listening!');
+      console.log(`✅ Server running on port ${PORT}`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`💚 Health check: http://localhost:${PORT}/health`);
+      console.log(`🔗 Also try: http://127.0.0.1:${PORT}/health`);
+      
+      // Immediately test server connectivity
+      setTimeout(() => {
+        console.log('[Server] Testing internal connectivity...');
+        fetch(`http://127.0.0.1:${PORT}/health`)
+          .then(res => res.json())
+          .then(data => console.log('[Server] ✅ Internal health check succeeded:', data))
+          .catch(err => console.error('[Server] ❌ Internal health check failed:', err.message));
+      }, 100);
     });
+    
+    console.log('[Server] app.listen() call completed, waiting for callback...');
 
     // Handle server errors
     server.on('error', (error: NodeJS.ErrnoException) => {

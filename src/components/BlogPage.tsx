@@ -1,4 +1,7 @@
-import ChatServiceDemo from '../../chat-service-demo';
+// CRITICAL: This import path must include .tsx extension and reference the root-level file
+// The chat-service-demo.tsx file is located at project root, not in src/
+// Breaking this import will cause the frontend to fail to start
+import ChatServiceDemo from '../../chat-service-demo.tsx';
 
 export default function BlogPage() {
   return (
@@ -89,7 +92,7 @@ export default function BlogPage() {
 
               <h5 id="message-ingestion" className="text-xl font-serif text-gray-900 mt-8 mb-3 font-light">Message Ingestion</h5>
 
-              <h5 id="planning-agent" className="text-xl font-serif text-gray-900 mt-8 mb-3 font-light">Planning Agent</h5>
+              <h5 id="triage-agent" className="text-xl font-serif text-gray-900 mt-8 mb-3 font-light">Triage Agent</h5>
 
               <h5 id="internally-defined-tools" className="text-xl font-serif text-gray-900 mt-8 mb-3 font-light">Internally Defined Tools</h5>
               

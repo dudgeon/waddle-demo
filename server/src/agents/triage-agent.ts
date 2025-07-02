@@ -18,7 +18,7 @@ import type { AgentContext, RunContext } from './types.js';
 function buildTriageInstructions(runContext: RunContext<AgentContext>, _agent: any): string {
   const { context } = runContext;
   const debugMode = context.isDebug ? '\n\nDEBUG MODE: Always explain your routing reasoning in detail.' : '';
-  const userContext = context.userId ? `\nCustomer ID: ${context.userId}` : '\nNo customer authentication detected';
+  const userContext = context.userId ? `\nCustomer ID: ${context.userId}` : '\nDemo mode - using sample account data';
   
   return `You are a customer service agent for Penguin Bank.
 
@@ -53,7 +53,8 @@ Tool usage:
 Response filtering:
 - When tools return more information than the customer requested, filter the response to show only relevant data
 - If a customer asks about specific accounts or items, only display those in your response
-- For ambiguous requests (e.g. "What is my balance?"), ask for clarification before calling tools (e.g. "Which account balance would you like to check?")
+- For account balance requests, use available tools to retrieve and display account information
+- In demo mode, always use tools to show sample account data rather than asking for authentication
 
 ${debugMode}`;
 }

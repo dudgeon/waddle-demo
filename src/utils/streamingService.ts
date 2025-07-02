@@ -15,6 +15,7 @@ export interface StreamingCallbacks {
   onConnected?: (data: any) => void;
   onTextDelta?: (data: { delta: string; sessionId: string }) => void;
   onToolCall?: (data: { name: string; event_name: string; sessionId: string }) => void;
+  onToolCallStarting?: (data: { name: string; event_name: string; sessionId: string; isMcpTool: boolean; displayName: string }) => void;
   onMessageCreated?: (data: { event_name: string; item_type: string; sessionId: string }) => void;
   onAgentUpdated?: (data: { agent_name: string; sessionId: string }) => void;
   onResponseCompleted?: (data: { status: string; sessionId: string }) => void;
@@ -180,6 +181,12 @@ export class StreamingChatService {
       this.callbacks.onToolCall?.(data);
     });
 
+    // Tool call starting events (pre-execution)
+    this.eventSource.addEventListener('tool_call_starting', (event) => {
+      const data = JSON.parse(event.data);
+      this.callbacks.onToolCallStarting?.(data);
+    });
+
     // Message creation events
     this.eventSource.addEventListener('message_created', (event) => {
       const data = JSON.parse(event.data);
@@ -213,8 +220,23 @@ export class StreamingChatService {
 
     // Error events (custom error events from server)
     this.eventSource.addEventListener('error', (event) => {
-      const data = JSON.parse((event as MessageEvent).data);
-      this.callbacks.onError?.(data);
+      try {
+        const messageEvent = event as MessageEvent;
+        if (messageEvent.data && messageEvent.data !== 'undefined') {
+          const data = JSON.parse(messageEvent.data);
+          this.callbacks.onError?.(data);
+        } else {
+          console.warn('Received error event with no data or undefined data');
+        }
+      } catch (parseError) {
+        console.error('Failed to parse error event data:', parseError);
+        this.callbacks.onError?.({
+          error: 'Failed to parse error event',
+          code: 'PARSE_ERROR',
+          sessionId: this.lastSessionId,
+          timestamp: new Date().toISOString()
+        });
+      }
     });
 
     // EventSource error handling

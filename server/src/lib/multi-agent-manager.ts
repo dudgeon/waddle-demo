@@ -8,6 +8,7 @@
 import { run, AgentInputItem, hostedMcpTool } from '@openai/agents';
 import { getAgentRegistry } from '../agents/index.js';
 import { loadTools, convertToolsForAgent, loadMCPConfigurations } from './loadTools.js';
+import { makeInstrumentedMcpTool, handleMcpToolApproval } from './mcp-tool-wrapper.js';
 import type { AgentContext, AgentType, AgentResult } from '../agents/types.js';
 
 /**
@@ -57,16 +58,24 @@ export class MultiAgentManager {
       console.log('[MultiAgentManager] Initializing multi-agent system...');
       
       // Load local tools and MCP configurations separately
+      console.log('[MultiAgentManager] Loading tools and MCP configurations...');
       const [toolDefinitions, mcpConfigurations] = await Promise.all([
-        loadTools(),
-        loadMCPConfigurations()
+        loadTools().catch(error => {
+          console.error('[MultiAgentManager] Failed to load tools:', error);
+          throw error;
+        }),
+        loadMCPConfigurations().catch(error => {
+          console.error('[MultiAgentManager] Failed to load MCP configurations:', error);
+          throw error;
+        })
       ]);
       
       // Convert local tools to SDK format
+      console.log('[MultiAgentManager] Converting tools for agent...');
       const localTools = convertToolsForAgent(toolDefinitions);
       
-      // Create MCP tools directly using hostedMcpTool
-      const mcpTools = mcpConfigurations.map(config => hostedMcpTool(config));
+      // Create MCP tools with instrumentation for visibility
+      const mcpTools = mcpConfigurations.map(config => makeInstrumentedMcpTool(config));
       
       console.log(`[MultiAgentManager] Loaded ${localTools.length} local tools and ${mcpTools.length} MCP tools`);
       
@@ -162,9 +171,67 @@ export class MultiAgentManager {
       }
 
       // Use SDK's run function with conversation history and context injection
+      console.log('[MultiAgentManager] Running agent...', {
+        agentType,
+        streaming: options.stream === true,
+        sessionId: context.sessionId,
+        messageLength: message.length
+      });
+      
       const result = options.stream === true 
         ? await run(agent, conversationInput, { context, stream: true })
         : await run(agent, conversationInput, { context, stream: false });
+
+      console.log('[MultiAgentManager] Agent run completed', {
+        hasResult: !!result,
+        hasInterruptions: !!(result.interruptions && result.interruptions.length > 0),
+        interruptionCount: result.interruptions?.length || 0,
+        hasRawResponse: !!result.rawResponse,
+        hasFinalOutput: !!result.finalOutput,
+        streaming: options.stream === true,
+        sessionId: context.sessionId
+      });
+
+      // Handle MCP tool approval interruptions
+      console.log('[MultiAgentManager] Checking for interruptions...', {
+        hasInterruptions: result.interruptions && result.interruptions.length > 0,
+        interruptionCount: result.interruptions?.length || 0,
+        sessionId: context.sessionId,
+        allInterruptions: result.interruptions,
+        resultKeys: Object.keys(result || {})
+      });
+      
+      if (result.interruptions && result.interruptions.length > 0) {
+        console.log('[MultiAgentManager] Processing interruptions:', result.interruptions);
+        
+        for (const interruption of result.interruptions) {
+          console.log('[MultiAgentManager] Processing interruption:', interruption);
+          
+          if (interruption.type === 'tool_approval') {
+            const toolName = interruption.item?.name || interruption.item?.type || 'unknown';
+            const toolArgs = interruption.item?.arguments || {};
+            
+            console.log('[MultiAgentManager] Tool approval required:', { toolName, toolArgs });
+            
+            // Extract and store tool information for visualization
+            handleMcpToolApproval(context.sessionId, toolName, toolArgs);
+            
+            // **THIS IS THE PERFECT MOMENT TO TRIGGER MCP UI ACTIVATION**
+            // The tool is about to be approved and executed - send notification
+            console.log('[MCP APPROVAL TRIGGERED]', { 
+              toolName, 
+              sessionId: context.sessionId,
+              timing: 'pre-execution',
+              message: 'This is when the MCP UI should activate!' 
+            });
+            
+            // Auto-approve the tool execution
+            await interruption.state.approve();
+            
+            console.log('[MultiAgentManager] Tool approved:', toolName);
+          }
+        }
+      }
 
       // Update conversation thread with result history
       this.conversationThreads.set(context.sessionId, result.history);
