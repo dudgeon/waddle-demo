@@ -1,3 +1,6 @@
+// IMPORTANT: This file must remain at project root level
+// It is imported by src/components/BlogPage.tsx with path: '../../chat-service-demo.tsx'
+// Moving this file will break the frontend application
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, CheckCircle, ArrowDown, Zap, AlertCircle, Eye } from 'lucide-react';
 import { FLOW_STEPS, TIMING_CONFIG, FlowStep } from './src/constants/flowSteps';
@@ -23,7 +26,12 @@ export default function ChatServiceDemo() {
   
   // Helper functions for managing active steps
   const addActiveStep = (step: string) => {
-    setActiveSteps(prev => prev.includes(step) ? prev : [...prev, step]);
+    setActiveSteps(prev => {
+      console.log('addActiveStep called:', { step, prev, includes: prev.includes(step) });
+      const newSteps = prev.includes(step) ? prev : [...prev, step];
+      console.log('addActiveStep result:', newSteps);
+      return newSteps;
+    });
   };
   
   const removeActiveStep = (step: string) => {
@@ -35,7 +43,11 @@ export default function ChatServiceDemo() {
   };
   
   const isStepActive = (step: string) => {
-    return activeSteps.includes(step);
+    const isActive = activeSteps.includes(step);
+    if (step === 'mcp') {
+      console.log('Checking if mcp step is active:', { step, activeSteps, isActive, currentToolName });
+    }
+    return isActive;
   };
   
   // New state for real streaming integration
@@ -101,40 +113,44 @@ export default function ChatServiceDemo() {
           }
         },
         
-        onToolCall: (data) => {
-          console.log('Tool called:', data);
-          console.log('Tool name:', data.name);
-          console.log('Tool data:', data); // Debug: see full data structure
+        onToolCallStarting: (data) => {
+          console.log('Tool call starting (EARLY):', data);
           
-          // Map tool names to our visual flow - ADD tools while keeping triage active
-          if (data.name.includes('order') || data.name.includes('db')) {
+          if (data.isMcpTool) {
+            console.log('MCP tool activation EARLY:', data.displayName);
+            console.log('Current activeSteps before EARLY:', activeSteps);
+            addActiveStep('mcp');
+            setCurrentToolName(prev => {
+              console.log('setCurrentToolName EARLY:', { prev, new: data.displayName });
+              return data.displayName;
+            });
+            console.log('Added mcp step EARLY, tool name set to:', data.displayName);
+          }
+        },
+        
+        onToolCall: (data) => {
+          console.log('Tool called (LATE):', data);
+          
+          if (data.isMcpTool) {
+            console.log('MCP tool activated LATE:', data.displayName);
+            // Don't activate again if already activated early
+          } else if (data.name.includes('order') || data.name.includes('db')) {
             console.log('Activating Local Tool 1');
             addActiveStep('localtool1');
           } else if (data.name.includes('crm') || data.name.includes('customer')) {
             console.log('Activating Local Tool 2');
             addActiveStep('localtool2');
-          } else if (data.event_name === 'tool_called') {
-            // For hostedMcpTools and other external tools, check if it's a tool_called event
-            // and doesn't match our local tool patterns
-            console.log('Activating MCP tool:', data.name);
-            console.log('Adding MCP step while keeping triage active');
-            addActiveStep('mcp');
-            setCurrentToolName(data.name); // Store tool name for MCP only
-            console.log('MCP step should now be active alongside triage');
-          } else {
-            console.log('Unknown tool type, not activating any step:', data.name, 'event:', data.event_name);
           }
           
-          // Remove tool steps after execution while keeping triage active
+          // Clear after delay
           if (activeStepTimeoutRef.current) {
             clearTimeout(activeStepTimeoutRef.current);
           }
           activeStepTimeoutRef.current = setTimeout(() => {
-            // Remove tool steps but keep triage active
             removeActiveStep('localtool1');
             removeActiveStep('localtool2');
             removeActiveStep('mcp');
-            setCurrentToolName(''); // Clear tool name
+            setCurrentToolName('');
             activeStepTimeoutRef.current = null;
           }, 3000);
         },
@@ -178,12 +194,8 @@ export default function ChatServiceDemo() {
           console.log('Stream completed:', data);
           setIsStreaming(false);
           setStreamingText('');
-          // Clear any pending timeouts and deactivate all steps
-          if (activeStepTimeoutRef.current) {
-            clearTimeout(activeStepTimeoutRef.current);
-            activeStepTimeoutRef.current = null;
-          }
-          clearAllActiveSteps();
+          // Don't clear active steps immediately - let the timeout handle it
+          // This allows the MCP visualization to be visible for the full 3 seconds
         },
         
         onError: (data) => {
@@ -511,11 +523,6 @@ export default function ChatServiceDemo() {
                             isSubStep={true}
                             toolName={subStep.id === 'mcp' ? currentToolName : ''}
                           />
-                          {subStep.id === 'mcp' && (
-                            <div style={{fontSize: '10px', color: 'red', position: 'absolute', top: '-20px', left: '0'}}>
-                              Debug: activeSteps={JSON.stringify(activeSteps)}, isActive={isStepActive(subStep.id) ? 'TRUE' : 'FALSE'}
-                            </div>
-                          )}
                         </div>
                       ))}
                     </div>

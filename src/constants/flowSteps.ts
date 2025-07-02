@@ -1,4 +1,4 @@
-import { Bot, User, Sparkles, Database, Globe, Send, Shield } from 'lucide-react';
+import { Bot, User, Sparkles, Database, Globe, Send, Shield, Eye } from 'lucide-react';
 
 export interface FlowStep {
   id: string;
@@ -12,9 +12,9 @@ export interface FlowStep {
 export const FLOW_STEPS: FlowStep[] = [
   { id: 'receive', label: 'Receive Message', icon: Bot, color: 'blue' },
   { 
-    id: 'planning', 
-    label: 'Planning Agent', 
-    description: 'The Planning Agent analyzes the customer inquiry using advanced natural language processing to understand intent, context, and urgency. It determines the optimal workflow path by evaluating available resources and selecting the most appropriate tools and data sources needed to provide a comprehensive response.',
+    id: 'triage', 
+    label: 'Triage Agent', 
+    description: 'The Triage Agent serves as the primary customer service interface, analyzing inquiries and using available tools to gather information and resolve customer issues.',
     icon: Sparkles, 
     color: 'purple' 
   },
@@ -24,12 +24,12 @@ export const FLOW_STEPS: FlowStep[] = [
     icon: Database, // This won't be used since it has subSteps
     color: 'green',
     subSteps: [
-      { id: 'orderdb', label: 'Order Database', icon: Database, color: 'green' },
-      { id: 'crm', label: 'Customer CRM', icon: Shield, color: 'green' },
+      { id: 'localtool1', label: 'Local Tool 1', icon: Database, color: 'green' },
+      { id: 'localtool2', label: 'Local Tool 2', icon: Shield, color: 'green' },
       { id: 'mcp', label: 'MCP Server', icon: Globe, color: 'orange' }
     ]
   },
-  { id: 'approval', label: 'Human Approval', icon: User, color: 'red' },
+  { id: 'humanreview', label: 'Human Review', icon: Eye, color: 'red' },
   { id: 'respond', label: 'Send Response', icon: Send, color: 'blue' }
 ];
 
